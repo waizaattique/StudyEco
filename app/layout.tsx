@@ -4,6 +4,7 @@ import {
   DM_Mono,
   DM_Sans, Geist } from "next/font/google";
 import "./globals.css";
+import { BRAND } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
@@ -27,8 +28,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "TheEclipse.ai",
-  description: "Your all-in-one student workspace.",
+  title: BRAND.name,
+  description: BRAND.tagline,
 };
 
 export default function RootLayout({

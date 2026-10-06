@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import { BRAND } from "@/lib/brand";
 
 const links = [
   { href: "/dashboard", label: "Dashboard" },
@@ -26,7 +27,7 @@ export default function AppNav() {
       {/* Mobile top bar */}
       <div className="flex items-center justify-between border-b border-line px-4 py-3 lg:hidden">
         <Link href="/dashboard" className="font-mono text-lg text-ink">
-          TheEclipse.ai
+          {BRAND.name}
         </Link>
         <button
           type="button"
@@ -80,7 +81,7 @@ export default function AppNav() {
         className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-56 lg:shrink-0 lg:flex-col lg:border-r lg:border-line lg:px-4 lg:py-6"
       >
         <Link href="/dashboard" className="mb-8 px-2 font-mono text-lg text-ink">
-          TheEclipse.ai
+          {BRAND.name}
         </Link>
         <ul className="flex flex-1 flex-col gap-1">
           {links.map((link) => {

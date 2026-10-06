@@ -3,6 +3,7 @@ import styles from "./signup.module.css";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BRAND } from "@/lib/brand";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -21,7 +22,7 @@ export default function SignupPage() {
     <main className={styles.signupPage}>
       <div className={styles.formContainer}>
         <form onSubmit={handleSubmit}>
-          <h1>TheEclipse.ai</h1>
+          <h1>{BRAND.name}</h1>
           <h2>Sign Up</h2>
 
           <input

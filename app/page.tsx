@@ -1,9 +1,9 @@
+import { BRAND } from "@/lib/brand";
+
 export default function Home() {
   return (
     <main>
       <nav className="navbar">
-        <div className="logo">StudyEco</div>
-
         <div className="nav-links">
           <a href="#features">Features</a>
           <a href="#blog">Blog</a>
