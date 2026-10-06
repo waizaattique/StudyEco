@@ -3,6 +3,7 @@
 import styles from "./login.module.css";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { BRAND } from "@/lib/brand";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export default function LoginPage() {
   return (
     <main className={styles.loginPage}>
       <div className={styles.formContainer}>
-        <h1>TheEclipse.ai</h1>
+        <h1>{BRAND.name}</h1>
         <h2>Login</h2>
 
         <form onSubmit={handleSubmit}>

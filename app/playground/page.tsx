@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BRAND } from "@/lib/brand";
 
 export const metadata = { title: "Component Playground" };
 
@@ -18,7 +19,7 @@ export default function PlaygroundIndexPage() {
     <main className="mx-auto w-full max-w-5xl p-6 md:p-10">
       <header className="mb-8 space-y-2">
         <p className="font-mono text-xs uppercase tracking-widest text-ink-soft">
-          TheEclipse.ai
+          {BRAND.name}
         </p>
         <h1 className="font-mono text-2xl text-ink">Component Playground</h1>
         <p className="max-w-prose break-words text-sm text-ink-soft">

@@ -1,8 +1,10 @@
+import { BRAND } from "@/lib/brand";
+
 export default function Home() {
   return (
     <main>
       <nav className="navbar">
-        <div className="logo">TheEclipse.ai</div>
+        <div className="logo">{BRAND.name}</div>
 
         <div className="nav-links">
           <a href="#features">Features</a>

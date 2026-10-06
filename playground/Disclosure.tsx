@@ -15,6 +15,7 @@
  */
 
 import { useId, useState } from "react";
+import { BRAND } from "@/lib/brand";
 import { playgroundSecondaryButton } from "./styles";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ export default function DisclosurePage() {
           </p>
         </Disclosure>
 
-        <Disclosure title="How does TheEclipse.ai generate my study plan?">
+        <Disclosure title={`How does ${BRAND.name} generate my study plan?`}>
           <p>
             We combine your syllabus deadlines, past quiz scores, and daily
             availability to build a personalised timetable. The model rebalances
