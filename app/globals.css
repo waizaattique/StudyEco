@@ -17,11 +17,16 @@
   --color-corona: #c98a1f;
   --color-corona-dim: #a8710f;
 
+  --font-sans: var(--font-dm-sans), sans-serif;
   --font-heading: var(--font-playfair), serif;
   --font-mono: var(--font-dm-mono), monospace;
   --font-body: var(--font-dm-sans), sans-serif;
 
   --breakpoint-xs: 375px;
+}
+
+html {
+  font-family: var(--font-body);
 }
 
 body {
@@ -39,128 +44,137 @@ body {
 
 .navbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
+  flex-wrap: nowrap;
+  gap: 16px;
   justify-content: space-between;
   align-items: center;
-
-  padding: 15px 20px;
-
+  box-sizing: border-box;
+  min-height: 72px;
+  padding: 12px clamp(16px, 4vw, 32px);
   border-bottom: 2px solid var(--color-line);
-
   animation: slideDown 1s ease;
-
-  font-family: var(--font-mono);
 }
 
 .logo {
-  font-size: clamp(18px, 4vw, 24px);
+  flex: none;
+  font-size: clamp(16px, 2vw, 22px);
   font-family: var(--font-mono);
   font-weight: 500;
   color: var(--color-ink);
 }
 
+.nav-links {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 32px;
+  margin-left: auto;
+}
+
+.nav-links a {
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 400;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.nav-links a:hover {
+  color: var(--color-corona);
+}
+
 .login-btn {
   background: var(--color-ink);
   color: var(--color-paper);
-
   border: none;
   padding: 8px 18px;
   border-radius: 12px;
-
-  font-size: clamp(14px, 2.5vw, 18px);
+  font-size: 15px;
   font-family: var(--font-mono);
   font-weight: 400;
-
+  white-space: nowrap;
   cursor: pointer;
   text-decoration: none;
-
-  transition: all 0.3s ease;
-
+  transition: background-color 0.2s ease, color 0.2s ease;
   box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
 }
 
 .login-btn:hover {
-  transform: scale(1.08);
-  background: var(--color-ink-soft);
+  background: var(--color-corona);
+  color: var(--color-ink);
+}
+
+.nav-links a:focus-visible,
+.login-btn:focus-visible,
+.start-btn:focus-visible {
+  outline: 3px solid var(--color-corona);
+  outline-offset: 4px;
 }
 
 /* HERO */
 
 .hero {
-  text-align: center;
-
+  box-sizing: border-box;
+  text-align: left;
   margin-top: clamp(60px, 12vw, 130px);
-
-  padding: 0 20px;
-
+  padding-inline: clamp(16px, 4vw, 32px);
   animation: fadeUp 1.2s ease;
+}
+
+.hero .hero-label {
+  margin: 0 0 16px;
+  color: var(--color-corona);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
 }
 
 .hero h1 {
   font-family: var(--font-heading);
-
   font-size: clamp(38px, 6vw, 68px);
-
   font-weight: 800;
-
   line-height: 1.1;
-
   color: var(--color-ink);
-
-  margin-bottom: 30px;
-
-  animation: textGlow 2s infinite alternate;
+  max-width: 900px;
+  margin: 0 0 24px;
 }
 
 .hero p {
+  max-width: 520px;
+  margin: 0 0 36px;
   font-family: var(--font-mono);
-
   font-size: clamp(16px, 2.5vw, 24px);
-
   font-weight: 400;
-
   line-height: 1.6;
-
   color: var(--color-ink-soft);
-
-  margin-bottom: 50px;
 }
 
 /* START BUTTON */
 
 .start-btn {
   display: inline-block;
-
   background: var(--color-ink);
   color: var(--color-paper);
-
   border: none;
-
   padding:
     clamp(14px, 2.5vw, 18px)
     clamp(28px, 6vw, 45px);
-
   font-size: clamp(16px, 2.5vw, 22px);
-
   font-family: var(--font-mono);
   font-weight: 500;
-
   border-radius: 14px;
-
   text-decoration: none;
   cursor: pointer;
-
-  transition: all 0.3s ease;
-
+  transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
   box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.35);
 }
 
 .start-btn:hover {
-  transform: translateY(-5px) scale(1.05);
-
-  background: #111;
-
+  transform: translateY(-3px);
+  background: var(--color-corona);
+  color: var(--color-ink);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
 }
 
@@ -227,7 +241,6 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .navbar,
   .hero,
-  .hero h1,
   .login-btn,
   .start-btn {
     animation: none !important;
@@ -235,30 +248,30 @@ body {
   }
 }
 
-.nav-links {
-  display: flex;
-  align-items: center;
-  gap: 32px;
-  margin-left: auto;
-  margin-right: 32px;
-}
+@media (max-width: 767px) {
+  .navbar {
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 64px;
+  }
 
-.nav-links a {
-  color: var(--color-ink);
-  font-family: var(--font-mono);
-  font-size: 15px;
-  font-weight: 400;
-  text-decoration: none;
-  transition: color 0.3s ease;
-}
+  .nav-links {
+    flex-wrap: wrap;
+    gap: clamp(6px, 1.6vw, 12px);
+    margin-left: 0;
+  }
 
-.nav-links a:hover {
-  color: var(--color-corona);
+  .nav-links a {
+    font-size: clamp(10px, 3vw, 14px);
+  }
+
+  .login-btn {
+    padding: 7px 11px;
+    font-size: 13px;
+  }
 }
 
 @theme inline {
-  --font-heading: var(--font-sans);
-  --font-sans: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -376,6 +389,6 @@ body {
     @apply bg-background text-foreground;
   }
   html {
-    @apply font-sans;
+    font-family: var(--font-body);
   }
 }
