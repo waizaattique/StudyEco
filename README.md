@@ -24,9 +24,6 @@ StudyEco brings everyday study tools together with AI-powered features, so study
 
 Instead of switching between separate apps for notes, planning, tasks, reminders, and learning support, students get everything in one workspace.
 
-<!-- Add a screenshot or GIF of the app here:
-![StudyEco preview](./public/preview.png)
--->
 
 ## Features
 
