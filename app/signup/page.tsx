@@ -15,7 +15,7 @@ export default function SignupPage() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    router.push("/home");
+    router.push("/ai-tutor");
   }
 
   return (
