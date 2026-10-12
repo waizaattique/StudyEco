@@ -1,5 +1,5 @@
-import AiTutor from "./AiTutor";
+import Chat from "@/components/tutor/Chat";
 
 export default function AiTutorPage() {
-  return <AiTutor />;
+  return <Chat />;
 }

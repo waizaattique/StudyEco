@@ -6,7 +6,7 @@ import type { LanguageModel } from "ai";
  * Shared server-side AI configuration for the tutor.
  *
  * Provider selection and credentials are read only from server environment
- * variables. Gemini 2.5 Flash is the documented low-latency Flash endpoint;
+ * variables. Gemini 3.8 Flash is the documented current Flash endpoint;
  * Groq uses the requested Llama 3.3 70B Versatile model. Keeping model choice,
  * response limits, and tutor behavior here ensures every server entry point
  * uses the same configuration.
@@ -22,6 +22,25 @@ export const SYSTEM_PROMPT =
   "the working, then the answer. End with one short question or practice task " +
   "that checks understanding. Be friendly and encouraging. Avoid filler. If a " +
   "request is unrelated to studying or learning, gently steer back.";
+
+export function getConfiguredProvider() {
+  return process.env.AI_PROVIDER?.trim() || "google";
+}
+
+export function getGoogleModelId() {
+  return process.env.GOOGLE_MODEL?.trim() || "gemini-3.8-flash";
+}
+
+export function getGoogleFallbackModelId() {
+  return process.env.GOOGLE_FALLBACK_MODEL?.trim() || "gemini-2.5-flash-lite";
+}
+
+export function hasGroqApiKey() {
+  const key = process.env.GROQ_API_KEY?.trim();
+  return Boolean(
+    key && key !== "your-groq-key-here" && key !== "your-key-here",
+  );
+}
 
 export class AIProviderConfigurationError extends Error {
   constructor(message: string) {
@@ -39,12 +58,13 @@ function requireApiKey(value: string | undefined, name: string) {
   }
 }
 
-export function getModel(): LanguageModel {
-  const provider = process.env.AI_PROVIDER ?? "google";
-
+export function getModel(
+  provider = getConfiguredProvider(),
+  modelId?: string,
+): LanguageModel {
   if (provider === "google") {
     requireApiKey(process.env.GOOGLE_GENERATIVE_AI_API_KEY, "GOOGLE_GENERATIVE_AI_API_KEY");
-    return google("gemini-2.5-flash");
+    return google(modelId || getGoogleModelId());
   }
 
   if (provider === "groq") {
