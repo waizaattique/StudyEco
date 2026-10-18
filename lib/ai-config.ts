@@ -6,10 +6,9 @@ import type { LanguageModel } from "ai";
  * Shared server-side AI configuration for the tutor.
  *
  * Provider selection and credentials are read only from server environment
- * variables. Gemini 3.8 Flash is the documented current Flash endpoint;
- * Groq uses the requested Llama 3.3 70B Versatile model. Keeping model choice,
- * response limits, and tutor behavior here ensures every server entry point
- * uses the same configuration.
+ * variables. Groq uses the requested Llama 3.3 70B Versatile model. Keeping
+ * model choice, response limits, and tutor behavior here ensures every server
+ * entry point uses the same configuration.
  */
 export const MAX_OUTPUT_TOKENS = 1500;
 export const TEMPERATURE = 0.5;
@@ -27,12 +26,13 @@ export function getConfiguredProvider() {
   return process.env.AI_PROVIDER?.trim() || "google";
 }
 
+// free-tier model IDs change; override with GOOGLE_MODEL / GOOGLE_FALLBACK_MODEL in .env.local
 export function getGoogleModelId() {
-  return process.env.GOOGLE_MODEL?.trim() || "gemini-3.8-flash";
+  return process.env.GOOGLE_MODEL?.trim() || "gemini-3.5-flash-lite";
 }
 
 export function getGoogleFallbackModelId() {
-  return process.env.GOOGLE_FALLBACK_MODEL?.trim() || "gemini-2.5-flash-lite";
+  return process.env.GOOGLE_FALLBACK_MODEL?.trim() || "gemini-3.5-flash-lite";
 }
 
 export function hasGroqApiKey() {

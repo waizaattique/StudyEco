@@ -35,7 +35,7 @@ export default function AppNav() {
           aria-expanded={open}
           aria-controls="app-nav-drawer"
           aria-label={open ? "Close navigation" : "Open navigation"}
-          className="flex h-9 w-9 flex-col items-center justify-center gap-1.5 rounded-md border border-line"
+          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-md border border-line"
         >
           <span
             className={`h-0.5 w-5 bg-ink transition-transform ${open ? "translate-y-2 rotate-45" : ""}`}
@@ -49,30 +49,38 @@ export default function AppNav() {
 
       {/* Mobile drawer */}
       {open && (
-        <nav
-          id="app-nav-drawer"
-          aria-label="App navigation"
-          className="border-b border-line px-2 py-2 lg:hidden"
-        >
-          <ul className="flex flex-col">
-            {links.map((link) => {
-              const active = pathname === link.href;
-              return (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    className={`block rounded-md px-3 py-2 font-mono text-sm ${
-                      active ? "bg-ink text-paper" : "text-ink-soft hover:bg-mist"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <button
+            type="button"
+            aria-label="Close navigation"
+            className="absolute inset-0 bg-ink/25"
+            onClick={() => setOpen(false)}
+          />
+          <nav
+            id="app-nav-drawer"
+            aria-label="App navigation"
+            className="absolute left-0 right-0 top-[69px] max-h-[calc(100dvh-69px)] overflow-y-auto border-b border-line bg-paper px-2 py-2 shadow-lg"
+          >
+            <ul className="flex flex-col">
+              {links.map((link) => {
+                const active = pathname === link.href;
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      onClick={() => setOpen(false)}
+                      className={`flex min-h-11 items-center rounded-md px-3 py-2 font-mono text-sm ${
+                        active ? "bg-ink text-paper" : "text-ink-soft hover:bg-mist"
+                      }`}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
+        </div>
       )}
 
       {/* Desktop sidebar */}

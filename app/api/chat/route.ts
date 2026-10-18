@@ -6,7 +6,7 @@ import {
   validateUIMessages,
   type UIMessage,
 } from "ai";
-import { isTutorMessage } from "@/lib/ai-tutor";
+import { isTutorMessage, sanitizeMessages } from "@/lib/ai-chat/validation";
 import {
   getConfiguredProvider,
   getGoogleFallbackModelId,
@@ -18,15 +18,25 @@ import {
   TEMPERATURE,
 } from "@/lib/ai-config";
 
+export const maxDuration = 60;
+
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 4_000;
+const MAX_TOTAL_LENGTH = 100_000;
+const MAX_REQUEST_BODY_BYTES = 100 * 1024;
+const MAX_PARTS_PER_MESSAGE = 100;
 const RATE_LIMIT = 20;
 const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMITED_MESSAGE =
+const MAX_RATE_LIMIT_ENTRIES = 10_000;
+const FIRST_TEXT_TIMEOUT_MS = 25_000;
+const MAX_PREFLIGHT_CHUNKS = 100;
+const RATE_LIMIT_MESSAGE = "Too many requests. Please wait a moment.";
+const PROVIDER_BUSY_MESSAGE =
   "The free model is busy. Wait a few seconds and send again.";
 const GENERIC_ERROR_MESSAGE =
   "The tutor could not finish this response. Please try again.";
 
+// Phase 5 replaces this process-local IP limit with a shared per-user limit.
 const requestsByIp = new Map<string, { count: number; windowStart: number }>();
 type ModelStreamChunk = ReturnType<typeof streamText>["stream"] extends ReadableStream<
   infer Chunk
@@ -36,6 +46,73 @@ type ModelStreamChunk = ReturnType<typeof streamText>["stream"] extends Readable
 
 function jsonError(message: string, status: number, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
+}
+
+class PreflightError extends Error {}
+
+class FirstTextTimeoutError extends PreflightError {
+  constructor() {
+    super("The model did not produce a first text chunk before the deadline.");
+    this.name = "FirstTextTimeoutError";
+  }
+}
+
+class PreflightChunkLimitError extends PreflightError {
+  constructor() {
+    super("The model produced too many chunks before its first text chunk.");
+    this.name = "PreflightChunkLimitError";
+  }
+}
+
+async function readRequestBody(
+  request: Request,
+): Promise<{ ok: true; text: string } | { ok: false; status: number; message: string }> {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
+    return {
+      ok: false,
+      status: 413,
+      message: "The request body must be no larger than 100 KB.",
+    };
+  }
+
+  if (!request.body) return { ok: true, text: "" };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+        await reader.cancel();
+        return {
+          ok: false,
+          status: 413,
+          message: "The request body must be no larger than 100 KB.",
+        };
+      }
+      chunks.push(value);
+    }
+  } catch {
+    return {
+      ok: false,
+      status: 400,
+      message: "The request body could not be read.",
+    };
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, text: new TextDecoder().decode(bytes) };
 }
 
 function getClientIp(request: Request) {
@@ -53,6 +130,17 @@ function checkRateLimit(ip: string, now: number) {
 
   const current = requestsByIp.get(ip);
   if (!current || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
+    if (!current && requestsByIp.size >= MAX_RATE_LIMIT_ENTRIES) {
+      let oldestKey: string | undefined;
+      let oldestWindowStart = Number.POSITIVE_INFINITY;
+      for (const [key, entry] of requestsByIp) {
+        if (entry.windowStart < oldestWindowStart) {
+          oldestKey = key;
+          oldestWindowStart = entry.windowStart;
+        }
+      }
+      if (oldestKey !== undefined) requestsByIp.delete(oldestKey);
+    }
     requestsByIp.set(ip, { count: 1, windowStart: now });
     return { allowed: true, retryAfter: 0 };
   }
@@ -68,6 +156,18 @@ function checkRateLimit(ip: string, now: number) {
 
   current.count += 1;
   return { allowed: true, retryAfter: 0 };
+}
+
+function readWithTimeout(
+  reader: ReadableStreamDefaultReader<ModelStreamChunk>,
+  timeoutMs: number,
+) {
+  return new Promise<ReadableStreamReadResult<ModelStreamChunk>>(
+    (resolve, reject) => {
+      const timeout = setTimeout(() => reject(new FirstTextTimeoutError()), timeoutMs);
+      reader.read().then(resolve, reject).finally(() => clearTimeout(timeout));
+    },
+  );
 }
 
 function isQuotaError(error: unknown): boolean {
@@ -148,7 +248,7 @@ function logProviderError(error: unknown) {
 
 function errorMessage(error: unknown) {
   logProviderError(error);
-  return isQuotaError(error) ? RATE_LIMITED_MESSAGE : GENERIC_ERROR_MESSAGE;
+  return isQuotaError(error) ? PROVIDER_BUSY_MESSAGE : GENERIC_ERROR_MESSAGE;
 }
 
 function replayStream(
@@ -198,10 +298,13 @@ async function prepareModelStream(
   });
   const reader = result.stream.getReader();
   const initialChunks: ModelStreamChunk[] = [];
+  const firstTextDeadline = Date.now() + FIRST_TEXT_TIMEOUT_MS;
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
+      const remainingMs = firstTextDeadline - Date.now();
+      if (remainingMs <= 0) throw new FirstTextTimeoutError();
+      const { done, value } = await readWithTimeout(reader, remainingMs);
       if (done) {
         console.info("[api/chat] Model answered", { model: modelId });
         reader.releaseLock();
@@ -216,7 +319,6 @@ async function prepareModelStream(
         };
       }
 
-      initialChunks.push(value);
       if (value.type === "error") {
         await reader.cancel();
         reader.releaseLock();
@@ -224,8 +326,16 @@ async function prepareModelStream(
       }
 
       if (value.type === "text-delta" && value.text.length > 0) {
+        initialChunks.push(value);
         console.info("[api/chat] Model answered", { model: modelId });
         return { ok: true as const, stream: replayStream(reader, initialChunks) };
+      }
+
+      initialChunks.push(value);
+      if (initialChunks.length > MAX_PREFLIGHT_CHUNKS) {
+        await reader.cancel();
+        reader.releaseLock();
+        return { ok: false as const, error: new PreflightChunkLimitError() };
       }
     }
   } catch (error) {
@@ -233,22 +343,33 @@ async function prepareModelStream(
       await reader.cancel();
     } catch {
       // The reader may already be cancelled by the provider.
+    } finally {
+      reader.releaseLock();
     }
     return { ok: false as const, error };
   }
 }
 
 export async function POST(request: Request) {
+  const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (contentType !== "application/json") {
+    return jsonError("Content-Type must be application/json.", 415);
+  }
+
   const limit = checkRateLimit(getClientIp(request), Date.now());
   if (!limit.allowed) {
-    return jsonError(RATE_LIMITED_MESSAGE, 429, {
+    return jsonError(RATE_LIMIT_MESSAGE, 429, {
       "Retry-After": String(limit.retryAfter),
     });
   }
 
   let body: unknown;
   try {
-    body = await request.json();
+    const requestBody = await readRequestBody(request);
+    if (!requestBody.ok) {
+      return jsonError(requestBody.message, requestBody.status);
+    }
+    body = JSON.parse(requestBody.text);
   } catch {
     return jsonError("The request body must be valid JSON.", 400);
   }
@@ -258,26 +379,75 @@ export async function POST(request: Request) {
   }
 
   const candidateMessages = (body as { messages: unknown }).messages;
+  if (!Array.isArray(candidateMessages)) {
+    return jsonError("Chat messages must be provided as an array.", 400);
+  }
+  if (candidateMessages.length > MAX_MESSAGES) {
+    return jsonError(`A chat can contain no more than ${MAX_MESSAGES} messages.`, 400);
+  }
   if (
-    !Array.isArray(candidateMessages) ||
-    candidateMessages.length === 0 ||
-    candidateMessages.length > MAX_MESSAGES ||
-    !candidateMessages.every(isTutorMessage)
+    candidateMessages.some(
+      (message) => {
+        if (!message || typeof message !== "object" || Array.isArray(message)) {
+          return true;
+        }
+        const parts = (message as Record<string, unknown>).parts;
+        return !Array.isArray(parts) || parts.length > MAX_PARTS_PER_MESSAGE;
+      },
+    )
   ) {
-    return jsonError("The chat messages are invalid or exceed the allowed limit.", 400);
+    return jsonError(
+      `Each chat message must have a valid parts array with no more than ${MAX_PARTS_PER_MESSAGE} parts.`,
+      400,
+    );
   }
 
-  const messages = candidateMessages as UIMessage[];
+  const sanitizedMessages = sanitizeMessages(candidateMessages);
+  if (
+    sanitizedMessages.length === 0 ||
+    !sanitizedMessages.every(isTutorMessage)
+  ) {
+    return jsonError("Chat messages must be a non-empty array of valid messages.", 400);
+  }
+
+  const messages = sanitizedMessages as UIMessage[];
   if (
     messages.some(
       (message) =>
+        message.role === "user" &&
         message.parts.reduce(
-          (length, part) => length + (part.type === "text" ? part.text.length : 0),
+          (length, part) =>
+            length + (part.type === "text" ? part.text.length : 0),
           0,
         ) > MAX_MESSAGE_LENGTH,
     )
   ) {
-    return jsonError("The chat messages are invalid or exceed the allowed limit.", 400);
+    return jsonError(
+      `A user message cannot exceed ${MAX_MESSAGE_LENGTH.toLocaleString()} characters.`,
+      400,
+    );
+  }
+
+  const totalLength = messages.reduce(
+    (total, message) =>
+      total +
+      message.parts.reduce(
+        (length, part) =>
+          length + (part.type === "text" ? part.text.length : 0),
+        0,
+      ),
+    0,
+  );
+  if (
+    messages.at(-1)?.role !== "user" ||
+    totalLength > MAX_TOTAL_LENGTH
+  ) {
+    return jsonError(
+      totalLength > MAX_TOTAL_LENGTH
+        ? "The conversation is too large. Start a new chat."
+        : "The last chat message must be from the user.",
+      400,
+    );
   }
 
   let validatedMessages: UIMessage[];
@@ -319,7 +489,7 @@ export async function POST(request: Request) {
       }
 
       logProviderError(primary.error);
-      if (!isQuotaError(primary.error)) {
+      if (!isQuotaError(primary.error) && !(primary.error instanceof PreflightError)) {
         return jsonError(GENERIC_ERROR_MESSAGE, 500);
       }
 
@@ -350,7 +520,7 @@ export async function POST(request: Request) {
       }
 
       if (!hasGroqApiKey()) {
-        return jsonError(RATE_LIMITED_MESSAGE, 429);
+        return jsonError(PROVIDER_BUSY_MESSAGE, 429);
       }
 
       const groqModelId = "groq:llama-3.3-70b-versatile";
@@ -371,7 +541,7 @@ export async function POST(request: Request) {
       logProviderError(groqAttempt.error);
       return jsonError(
         isQuotaError(groqAttempt.error)
-          ? RATE_LIMITED_MESSAGE
+          ? PROVIDER_BUSY_MESSAGE
           : GENERIC_ERROR_MESSAGE,
         isQuotaError(groqAttempt.error) ? 429 : 500,
       );
@@ -389,7 +559,7 @@ export async function POST(request: Request) {
     if (!attempt.ok) {
       logProviderError(attempt.error);
       return jsonError(
-        isQuotaError(attempt.error) ? RATE_LIMITED_MESSAGE : GENERIC_ERROR_MESSAGE,
+        isQuotaError(attempt.error) ? PROVIDER_BUSY_MESSAGE : GENERIC_ERROR_MESSAGE,
         isQuotaError(attempt.error) ? 429 : 500,
       );
     }
@@ -403,7 +573,7 @@ export async function POST(request: Request) {
   } catch (error) {
     logProviderError(error);
     return jsonError(
-      isQuotaError(error) ? RATE_LIMITED_MESSAGE : GENERIC_ERROR_MESSAGE,
+      isQuotaError(error) ? PROVIDER_BUSY_MESSAGE : GENERIC_ERROR_MESSAGE,
       isQuotaError(error) ? 429 : 500,
     );
   }

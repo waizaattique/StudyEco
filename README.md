@@ -44,7 +44,7 @@ Instead of switching between separate apps for notes, planning, tasks, reminders
 | Framework | Next.js |
 | Language | TypeScript |
 | UI | React, Tailwind CSS |
-| AI | AI SDK / Claude (AI Tutor and streaming responses) |
+| AI | AI SDK with Google Gemini and Groq providers |
 | Deployment | Vercel |
 
 ## Current Development
@@ -110,13 +110,19 @@ studyeco/
 
 ## Environment Variables
 
-Some AI functionality requires server-side environment variables. Create a `.env.local` file in the project root:
+The AI Tutor supports Google Gemini and Groq. Copy `.env.example` to `.env.local` in the project root and fill in the key for your selected provider:
 
 ```env
-ANTHROPIC_API_KEY=your_api_key_here
+AI_PROVIDER=google
+GOOGLE_GENERATIVE_AI_API_KEY=
+GOOGLE_MODEL=
+GOOGLE_FALLBACK_MODEL=
+GROQ_API_KEY=
 ```
 
-> ⚠️ Never commit API keys or other secrets to GitHub. Make sure `.env.local` is listed in your `.gitignore`.
+`AI_PROVIDER` defaults to `google`; set it to `groq` to use Groq. Google uses `gemini-3.8-flash` by default and can fall back to `gemini-2.5-flash-lite`; set either model variable to override the corresponding default. Groq uses `llama-3.3-70b-versatile`. Only the selected provider's API key is needed (Groq's key is also used as a fallback when Google quota is exhausted).
+
+> Never commit API keys or other secrets to GitHub. `.env.local` is ignored by Git; `.env.example` is a blank template safe to track.
 
 ## Project Goal
 

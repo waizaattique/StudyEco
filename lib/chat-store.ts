@@ -3,6 +3,9 @@ import type { UIMessage } from "ai";
 export const CHAT_USER_ID = "anon";
 const CHAT_STORAGE_EVENT = "studyeco:chats-changed";
 const STORAGE_UNAVAILABLE = "__studyeco_chat_storage_unavailable__";
+const MAX_STORED_CHATS = 50;
+const MAX_STORED_SIZE_BYTES = 2 * 1024 * 1024;
+const MAX_STORED_PARTS_PER_MESSAGE = 100;
 
 export interface StoredChat {
   id: string;
@@ -22,8 +25,11 @@ function isStoredChat(value: unknown): value is StoredChat {
   const chat = value as Record<string, unknown>;
   return (
     typeof chat.id === "string" &&
+    chat.id.length > 0 &&
     typeof chat.title === "string" &&
+    chat.title.length <= 1_000 &&
     Array.isArray(chat.messages) &&
+    chat.messages.every(isStoredMessage) &&
     typeof chat.updatedAt === "number" &&
     Number.isFinite(chat.updatedAt) &&
     typeof chat.pinned === "boolean" &&
@@ -31,6 +37,49 @@ function isStoredChat(value: unknown): value is StoredChat {
       (Array.isArray(chat.stoppedMessageIds) &&
         chat.stoppedMessageIds.every((id) => typeof id === "string")))
   );
+}
+
+function isStoredMessage(value: unknown): value is UIMessage {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const message = value as Record<string, unknown>;
+  if (
+    typeof message.id !== "string" ||
+    message.id.length === 0 ||
+    (message.role !== "user" && message.role !== "assistant") ||
+    !Array.isArray(message.parts) ||
+    message.parts.length === 0 ||
+    message.parts.length > MAX_STORED_PARTS_PER_MESSAGE
+  ) {
+    return false;
+  }
+
+  let textLength = 0;
+  for (const part of message.parts) {
+    if (!part || typeof part !== "object" || Array.isArray(part)) return false;
+    const item = part as Record<string, unknown>;
+    if (typeof item.type !== "string" || item.type.length === 0) return false;
+    if (item.type === "text") {
+      if (typeof item.text !== "string") return false;
+      textLength += item.text.length;
+    }
+  }
+
+  return textLength <= (message.role === "user" ? 4_000 : 20_000);
+}
+
+function byteLength(value: unknown) {
+  return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+}
+
+function capStoredChats(chats: StoredChat[]) {
+  const ordered = [...chats].sort((left, right) => right.updatedAt - left.updatedAt);
+  const capped: StoredChat[] = [];
+  for (const chat of ordered) {
+    if (capped.length >= MAX_STORED_CHATS) break;
+    const candidate = [...capped, chat];
+    if (byteLength(candidate) <= MAX_STORED_SIZE_BYTES) capped.push(chat);
+  }
+  return capped;
 }
 
 function readChats(userId: string): StoredChat[] {
@@ -43,7 +92,11 @@ function readChats(userId: string): StoredChat[] {
 
 function writeChats(userId: string, chats: StoredChat[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(storageKey(userId), JSON.stringify(chats));
+  const cappedChats = capStoredChats(chats);
+  if (chats.length > 0 && !cappedChats.some((chat) => chat.id === chats[0].id)) {
+    throw new Error("This chat is too large to save in this browser.");
+  }
+  window.localStorage.setItem(storageKey(userId), JSON.stringify(cappedChats));
   window.dispatchEvent(new Event(CHAT_STORAGE_EVENT));
 }
 
@@ -79,10 +132,13 @@ export function parseChatSnapshot(snapshot: string | null) {
 
   try {
     const parsed: unknown = JSON.parse(snapshot);
-    if (!Array.isArray(parsed) || !parsed.every(isStoredChat)) {
+    if (!Array.isArray(parsed)) {
       throw new Error("Saved chats have an invalid format.");
     }
-    return { chats: parsed, error: "" };
+    return {
+      chats: capStoredChats(parsed.filter(isStoredChat)),
+      error: "",
+    };
   } catch {
     return {
       chats: [] as StoredChat[],

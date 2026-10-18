@@ -111,7 +111,7 @@ export default function HistoryPanel({
                 onSelectChat(chat);
                 onMobileOpenChange(false);
               }}
-              className="h-10 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs"
+              className="h-11 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs"
             >
               <MessageCircle aria-hidden="true" className="size-4 shrink-0" />
               <span className="truncate">{chat.title}</span>
@@ -119,12 +119,12 @@ export default function HistoryPanel({
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              size="icon-lg"
               aria-label={`Actions for ${chat.title}`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuChatId(menuOpen ? null : chat.id)}
-              className="mr-1 size-7 shrink-0 opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+              className="mr-1 size-11 shrink-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 lg:size-9 lg:opacity-0"
             >
               <MoreHorizontal aria-hidden="true" />
             </Button>
@@ -177,6 +177,7 @@ export default function HistoryPanel({
             type="button"
             variant="ghost"
             size="icon-lg"
+            className="size-11"
             aria-label={searchOpen ? "Close chat search" : "Search chats"}
             title="Search chats"
             onClick={() => {
@@ -191,6 +192,7 @@ export default function HistoryPanel({
               type="button"
               variant="ghost"
               size="icon-lg"
+              className="size-11"
               aria-label="Close chat history"
               title="Close chat history"
               onClick={() => onMobileOpenChange(false)}
@@ -202,6 +204,7 @@ export default function HistoryPanel({
               type="button"
               variant="ghost"
               size="icon-lg"
+              className="size-11"
               aria-label="Collapse chat history"
               title="Collapse chat history"
               onClick={() => onExpandedChange(false)}
@@ -229,7 +232,7 @@ export default function HistoryPanel({
         <Button
           type="button"
           variant="ghost"
-          className="h-10 w-full justify-start gap-2 px-2 text-left"
+          className="h-11 w-full justify-start gap-2 px-2 text-left"
           onClick={() => {
             onNewChat();
             onMobileOpenChange(false);
@@ -244,7 +247,7 @@ export default function HistoryPanel({
             type="button"
             variant="ghost"
             aria-expanded={pinnedOpen}
-            className="h-10 w-full justify-start gap-2 px-2 text-left"
+            className="h-11 w-full justify-start gap-2 px-2 text-left"
             onClick={() => setPinnedOpen((open) => !open)}
           >
             <Pin aria-hidden="true" />

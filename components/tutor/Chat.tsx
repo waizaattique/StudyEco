@@ -48,10 +48,14 @@ const thinkingCaptions = [
   "Finding examples",
   "Putting it together",
 ];
+const MAX_SENT_MESSAGES = 20;
 
 let latestServerError = "";
 const chatTransport = new DefaultChatTransport({
   api: "/api/chat",
+  prepareSendMessagesRequest: ({ messages, body }) => ({
+    body: { ...body, messages: messages.slice(-MAX_SENT_MESSAGES) },
+  }),
   fetch: async (input, init) => {
     latestServerError = "";
     const response = await fetch(input, init);
@@ -236,7 +240,7 @@ export default function Chat() {
   const [generationKey, setGenerationKey] = useState(0);
 
   const activeChatIdRef = useRef<string | null>(null);
-  const turnChatIdRef = useRef<string | null>(null);
+  const turnChatIdsRef = useRef(new Map<string, string>());
   const pendingPromptRef = useRef("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -256,7 +260,13 @@ export default function Chat() {
       isError: boolean;
       isDisconnect: boolean;
     }) => {
-      const chatId = turnChatIdRef.current;
+      const lastUserMessage = [...messages]
+        .reverse()
+        .find((item) => item.role === "user");
+      const chatId = lastUserMessage
+        ? turnChatIdsRef.current.get(lastUserMessage.id)
+        : undefined;
+      if (lastUserMessage) turnChatIdsRef.current.delete(lastUserMessage.id);
       if (!chatId || messages.length === 0 || isError || isDisconnect) return;
       const existing = getChat(chatId, CHAT_USER_ID);
       const messageIds = new Set(messages.map((item) => item.id));
@@ -282,7 +292,6 @@ export default function Chat() {
           setStoppedMessageIds(stoppedIds);
         }
         pendingPromptRef.current = "";
-        turnChatIdRef.current = null;
       } catch {
         setErrorMessage(
           "Your response is ready, but this chat could not be saved in this browser.",
@@ -320,7 +329,7 @@ export default function Chat() {
     const failedPrompt = pendingPromptRef.current;
     setInput((current) => current || failedPrompt);
     pendingPromptRef.current = "";
-    turnChatIdRef.current = null;
+    turnChatIdsRef.current.clear();
     setMessages((current) => {
       const last = current.at(-1);
       return last?.role === "user" &&
@@ -404,8 +413,9 @@ export default function Chat() {
       activeChatIdRef.current = chatId;
       setActiveChatId(chatId);
     }
-    turnChatIdRef.current = chatId;
     pendingPromptRef.current = text;
+    const messageId = crypto.randomUUID();
+    turnChatIdsRef.current.set(messageId, chatId);
     const visibleMessageIds = new Set(messages.map((message) => message.id));
     setStoppedMessageIds((ids) => ids.filter((id) => visibleMessageIds.has(id)));
     setInput("");
@@ -414,7 +424,11 @@ export default function Chat() {
     setGenerationKey((key) => key + 1);
     autoScrollRef.current = true;
     setIsAtBottom(true);
-    void sendMessage({ text });
+    void sendMessage({
+      id: messageId,
+      role: "user",
+      parts: [{ type: "text", text }],
+    });
   }
 
   function handleStop() {
@@ -460,7 +474,7 @@ export default function Chat() {
   return (
     <section
       aria-label="AI Tutor"
-      className="relative flex h-[calc(100dvh-61px)] min-h-0 w-full overflow-hidden bg-paper text-ink lg:h-dvh"
+      className="relative flex h-[calc(100dvh-69px)] min-h-0 w-full overflow-hidden bg-paper text-ink lg:h-dvh"
     >
       <HistoryPanel
         chats={chats}
@@ -484,7 +498,7 @@ export default function Chat() {
             size="icon-lg"
             aria-label="Open chat history"
             title="Chat history"
-            className="lg:hidden"
+            className="size-11 lg:hidden"
             onClick={() => setMobileHistoryOpen(true)}
           >
             <Menu aria-hidden="true" />
@@ -548,6 +562,12 @@ export default function Chat() {
               aria-live="polite"
               aria-relevant="additions text"
             >
+              <h1 className="sr-only">AI Tutor</h1>
+              {messages.length > MAX_SENT_MESSAGES && (
+                <p className="text-center text-xs text-ink-soft">
+                  Older messages aren&apos;t sent to the tutor.
+                </p>
+              )}
               {messages.map((message, index) => {
                 if (message.role === "user") {
                   return (
@@ -640,7 +660,7 @@ export default function Chat() {
           <Composer
             value={input}
             isGenerating={isGenerating}
-            onChange={setInput}
+            onChange={(value) => setInput(value.slice(0, 4_000))}
             onSend={() => submitText()}
             onStop={handleStop}
           />
