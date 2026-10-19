@@ -111,7 +111,7 @@ export default function HistoryPanel({
                 onSelectChat(chat);
                 onMobileOpenChange(false);
               }}
-              className="h-11 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs"
+              className="group h-11 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
             >
               <MessageCircle aria-hidden="true" className="size-4 shrink-0" />
               <span className="truncate">{chat.title}</span>
@@ -135,7 +135,13 @@ export default function HistoryPanel({
                 className="absolute right-1 top-9 z-20 w-40 rounded-lg border border-line bg-paper p-1 shadow-lg"
               >
                 <MenuAction
-                  icon={chat.pinned ? <PinOff /> : <Pin />}
+                  icon={
+                    chat.pinned ? (
+                      <PinOff className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
+                    ) : (
+                      <Pin className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
+                    )
+                  }
                   onClick={() => {
                     onTogglePin(chat.id);
                     setMenuChatId(null);
@@ -144,7 +150,9 @@ export default function HistoryPanel({
                   {chat.pinned ? "Unpin" : "Pin"}
                 </MenuAction>
                 <MenuAction
-                  icon={<SquarePen />}
+                  icon={
+                    <SquarePen className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
+                  }
                   onClick={() => beginRename(chat)}
                 >
                   Rename
@@ -177,25 +185,25 @@ export default function HistoryPanel({
             type="button"
             variant="ghost"
             size="icon-lg"
-            className="size-11"
             aria-label={searchOpen ? "Close chat search" : "Search chats"}
             title="Search chats"
             onClick={() => {
               setSearchOpen((open) => !open);
               setQuery("");
             }}
+            className="group size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
           >
-            <Search aria-hidden="true" />
+            <Search aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-[1.12]" />
           </Button>
           {mobileOpen ? (
             <Button
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="size-11"
               aria-label="Close chat history"
               title="Close chat history"
               onClick={() => onMobileOpenChange(false)}
+              className="size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
             >
               <X aria-hidden="true" />
             </Button>
@@ -204,10 +212,10 @@ export default function HistoryPanel({
               type="button"
               variant="ghost"
               size="icon-lg"
-              className="size-11"
               aria-label="Collapse chat history"
               title="Collapse chat history"
               onClick={() => onExpandedChange(false)}
+              className="size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
             >
               <PanelLeftClose aria-hidden="true" />
             </Button>
@@ -232,13 +240,13 @@ export default function HistoryPanel({
         <Button
           type="button"
           variant="ghost"
-          className="h-11 w-full justify-start gap-2 px-2 text-left"
+          className="group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
           onClick={() => {
             onNewChat();
             onMobileOpenChange(false);
           }}
         >
-          <SquarePen aria-hidden="true" />
+          <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
           <span>New chat</span>
         </Button>
 
@@ -247,15 +255,15 @@ export default function HistoryPanel({
             type="button"
             variant="ghost"
             aria-expanded={pinnedOpen}
-            className="h-11 w-full justify-start gap-2 px-2 text-left"
+            className="group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
             onClick={() => setPinnedOpen((open) => !open)}
           >
-            <Pin aria-hidden="true" />
+            <Pin aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
             <span className="flex-1">Pinned</span>
             <ChevronRight
               aria-hidden="true"
-              className={`size-4 transition-transform duration-200 ${
-                pinnedOpen ? "rotate-90" : ""
+              className={`size-4 motion-safe:transition-transform motion-safe:duration-200 ${
+                pinnedOpen ? "motion-safe:rotate-90" : ""
               }`}
             />
           </Button>
@@ -294,7 +302,7 @@ export default function HistoryPanel({
     <>
       <aside
         aria-label="Chat history"
-        className={`hidden h-full shrink-0 flex-col overflow-hidden border-r border-line bg-paper transition-[width] duration-200 motion-reduce:transition-none lg:flex ${
+        className={`hidden h-full shrink-0 flex-col overflow-hidden border-r border-line bg-paper motion-safe:transition-[width] motion-safe:duration-200 lg:flex ${
           expanded ? "w-64" : "w-14"
         }`}
       >
@@ -303,7 +311,7 @@ export default function HistoryPanel({
         ) : (
           <div className="flex flex-col items-center gap-1 py-2">
             <RailButton label="New chat" onClick={onNewChat}>
-              <SquarePen aria-hidden="true" />
+              <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
             </RailButton>
             <RailButton
               label="Expand chat history"
@@ -318,7 +326,7 @@ export default function HistoryPanel({
                 setSearchOpen(true);
               }}
             >
-              <Search aria-hidden="true" />
+              <Search aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-[1.12]" />
             </RailButton>
           </div>
         )}
@@ -361,6 +369,7 @@ function RailButton({
       aria-label={label}
       title={label}
       onClick={onClick}
+      className="group hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
     >
       {children}
     </Button>
@@ -382,7 +391,7 @@ function MenuAction({
       variant="ghost"
       role="menuitem"
       onClick={onClick}
-      className="h-9 w-full justify-start gap-2 px-2 text-left text-xs"
+      className="group h-9 w-full justify-start gap-2 px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
     >
       {icon}
       {children}

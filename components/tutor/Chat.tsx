@@ -15,6 +15,7 @@ import {
 } from "ai";
 import {
   Menu,
+  Copy,
   Sparkles,
   SquarePen,
 } from "lucide-react";
@@ -22,7 +23,6 @@ import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import Composer from "@/components/tutor/Composer";
 import HistoryPanel from "@/components/tutor/HistoryPanel";
-import styles from "@/components/tutor/chat.module.css";
 import {
   CHAT_USER_ID,
   deleteChat,
@@ -136,29 +136,30 @@ function MarkdownMessage({ text }: { text: string }) {
   );
 }
 
-function ThinkingCaption() {
+function ThinkingCaption({ isThinking }: { isThinking: boolean }) {
   const [captionIndex, setCaptionIndex] = useState(0);
 
   useEffect(() => {
+    if (!isThinking) return;
     const interval = window.setInterval(
       () =>
         setCaptionIndex((index) => (index + 1) % thinkingCaptions.length),
       2_000,
     );
     return () => window.clearInterval(interval);
-  }, []);
+  }, [isThinking]);
 
   return (
     <div role="status" aria-label="Thinking">
       <p className="text-sm font-medium">Thinking...</p>
-      <p className="mt-1 text-xs text-ink-soft transition-opacity duration-300">
+      <p className="mt-1 text-xs text-ink-soft motion-safe:transition-opacity motion-safe:duration-300">
         {thinkingCaptions[captionIndex]}
       </p>
       <div aria-hidden="true" className="mt-2 flex gap-1.5 text-corona">
         {[0, 1, 2].map((star) => (
           <Sparkles
             key={star}
-            className={`${styles.star} size-3`}
+            className={`size-3 ${isThinking ? "motion-safe:animate-pulse" : ""}`}
             style={{ animationDelay: `${star * 0.18}s` }}
           />
         ))}
@@ -171,12 +172,16 @@ function AssistantRow({
   text,
   isThinking,
   isGenerating,
+  onCopy,
+  copied = false,
   stopped,
   error,
 }: {
   text: string;
   isThinking: boolean;
   isGenerating: boolean;
+  onCopy?: () => void;
+  copied?: boolean;
   stopped: boolean;
   error?: boolean;
 }) {
@@ -184,11 +189,13 @@ function AssistantRow({
     <div className="flex min-w-0 items-start gap-3">
       <Sparkles
         aria-hidden="true"
-        className="mt-1 size-4 shrink-0 text-corona"
+        className={`mt-1 size-4 shrink-0 text-corona ${
+          isGenerating ? "motion-safe:animate-pulse" : ""
+        }`}
       />
       <div className="grid min-w-0 flex-1">
         <div
-          className={`col-start-1 row-start-1 min-w-0 transition-opacity duration-300 ${
+          className={`col-start-1 row-start-1 min-w-0 motion-safe:transition-opacity motion-safe:duration-300 ${
             isThinking ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
           aria-hidden={isThinking}
@@ -200,6 +207,19 @@ function AssistantRow({
           ) : (
             <MarkdownMessage text={text} />
           )}
+          {!isGenerating && !error && text && onCopy && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={copied ? "Copied" : "Copy assistant message"}
+              onClick={onCopy}
+              className="mt-1 h-8 gap-1.5 px-2 text-xs text-ink-soft opacity-100 hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:group-focus-within/assistant:opacity-100 focus-visible:ring-2 focus-visible:ring-corona"
+            >
+              <Copy aria-hidden="true" className="size-3.5" />
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          )}
           {stopped && (
             <span className="mt-1 block text-[11px] text-ink-soft">
               Stopped
@@ -208,12 +228,12 @@ function AssistantRow({
         </div>
         {isGenerating && (
           <div
-            className={`col-start-1 row-start-1 transition-opacity duration-300 ${
+            className={`col-start-1 row-start-1 motion-safe:transition-opacity motion-safe:duration-300 ${
               isThinking ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
             aria-hidden={!isThinking}
           >
-            <ThinkingCaption />
+            <ThinkingCaption isThinking={isThinking} />
           </div>
         )}
       </div>
@@ -238,6 +258,7 @@ export default function Chat() {
   const [errorMessage, setErrorMessage] = useState("");
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   const activeChatIdRef = useRef<string | null>(null);
   const turnChatIdsRef = useRef(new Map<string, string>());
@@ -460,6 +481,22 @@ export default function Chat() {
     }
   }
 
+  async function copyAssistantMessage(messageId: string, text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedMessageId(messageId);
+      window.setTimeout(
+        () =>
+          setCopiedMessageId((current) =>
+            current === messageId ? null : current,
+          ),
+        1_500,
+      );
+    } catch {
+      setErrorMessage("This message could not be copied. Please try again.");
+    }
+  }
+
   const lastMessage = messages.at(-1);
   const activeAssistant =
     lastMessage?.role === "assistant" ? lastMessage : undefined;
@@ -512,8 +549,9 @@ export default function Chat() {
                 aria-label="New chat"
                 title="New chat"
                 onClick={beginNewChat}
+                className="group hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
               >
-                <SquarePen aria-hidden="true" />
+                <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
               </Button>
             )}
           </div>
@@ -540,12 +578,13 @@ export default function Chat() {
                 What are you learning today?
               </h2>
               <div className="mt-5 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-2">
-                {suggestions.map((suggestion) => (
+                {suggestions.map((suggestion, index) => (
                   <button
                     key={suggestion}
                     type="button"
                     onClick={() => submitText(suggestion)}
-                    className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 transition-colors hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-corona"
+                    style={{ animationDelay: `${index * 80}ms` }}
+                    className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-corona"
                   >
                     <Sparkles
                       aria-hidden="true"
@@ -571,7 +610,10 @@ export default function Chat() {
               {messages.map((message, index) => {
                 if (message.role === "user") {
                   return (
-                    <div key={message.id} className="flex justify-end">
+                    <div
+                      key={message.id}
+                      className="flex justify-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200"
+                    >
                       <p className="max-w-[min(34rem,90%)] whitespace-pre-wrap rounded-2xl border border-line bg-paper px-4 py-3 text-sm leading-6 shadow-sm">
                         {messageText(message)}
                       </p>
@@ -583,6 +625,7 @@ export default function Chat() {
                   showStreamAssistant && index === messages.length - 1;
                 return (
                   <div
+                    className="group/assistant motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
                     key={
                       isLastStreamingAssistant
                         ? `streaming-assistant-${generationKey}`
@@ -593,6 +636,8 @@ export default function Chat() {
                       text={messageText(message)}
                       isThinking={isLastStreamingAssistant && !messageText(message)}
                       isGenerating={isLastStreamingAssistant}
+                      onCopy={() => void copyAssistantMessage(message.id, messageText(message))}
+                      copied={copiedMessageId === message.id}
                       stopped={stoppedMessageIds.includes(message.id)}
                     />
                   </div>
@@ -600,7 +645,10 @@ export default function Chat() {
               })}
 
               {showPendingAssistant && (
-                <div key={`streaming-assistant-${generationKey}`}>
+                <div
+                  key={`streaming-assistant-${generationKey}`}
+                  className="group/assistant motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+                >
                   <AssistantRow
                     text=""
                     isThinking

@@ -3,24 +3,38 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import {
+  Activity,
+  Bell,
+  CalendarDays,
+  GraduationCap,
+  HeartPulse,
+  LayoutDashboard,
+  NotebookPen,
+  Settings,
+  Share2,
+  Sparkles,
+} from "lucide-react";
 import { BRAND } from "@/lib/brand";
 
 const links = [
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/notes", label: "Notes" },
-  { href: "/ai-tutor", label: "AI Tutor" },
-  { href: "/exam-prep", label: "Exam Prep" },
-  { href: "/timetable", label: "Timetable" },
-  { href: "/reminders", label: "Reminders" },
-  { href: "/sharing", label: "Sharing" },
-  { href: "/well-being", label: "Well-being" },
-  { href: "/settings", label: "Settings" },
-  { href: "/health", label: "Health" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/notes", label: "Notes", icon: NotebookPen },
+  { href: "/ai-tutor", label: "AI Tutor", icon: Sparkles },
+  { href: "/exam-prep", label: "Exam Prep", icon: GraduationCap },
+  { href: "/timetable", label: "Timetable", icon: CalendarDays },
+  { href: "/reminders", label: "Reminders", icon: Bell },
+  { href: "/sharing", label: "Sharing", icon: Share2 },
+  { href: "/well-being", label: "Well-being", icon: HeartPulse },
+  { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/health", label: "Health", icon: Activity },
 ];
 
 export default function AppNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isCurrentPage = (href: string) =>
+    pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <>
@@ -35,14 +49,14 @@ export default function AppNav() {
           aria-expanded={open}
           aria-controls="app-nav-drawer"
           aria-label={open ? "Close navigation" : "Open navigation"}
-          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-md border border-line"
+          className="flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-md border border-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
         >
           <span
-            className={`h-0.5 w-5 bg-ink transition-transform ${open ? "translate-y-2 rotate-45" : ""}`}
+            className={`h-0.5 w-5 bg-ink motion-safe:transition-transform ${open ? "translate-y-2 rotate-45" : ""}`}
           />
-          <span className={`h-0.5 w-5 bg-ink transition-opacity ${open ? "opacity-0" : ""}`} />
+          <span className={`h-0.5 w-5 bg-ink motion-safe:transition-opacity ${open ? "opacity-0" : ""}`} />
           <span
-            className={`h-0.5 w-5 bg-ink transition-transform ${open ? "-translate-y-2 -rotate-45" : ""}`}
+            className={`h-0.5 w-5 bg-ink motion-safe:transition-transform ${open ? "-translate-y-2 -rotate-45" : ""}`}
           />
         </button>
       </div>
@@ -63,16 +77,22 @@ export default function AppNav() {
           >
             <ul className="flex flex-col">
               {links.map((link) => {
-                const active = pathname === link.href;
+                const active = isCurrentPage(link.href);
+                const Icon = link.icon;
                 return (
                   <li key={link.href}>
                     <Link
                       href={link.href}
                       onClick={() => setOpen(false)}
-                      className={`flex min-h-11 items-center rounded-md px-3 py-2 font-mono text-sm ${
-                        active ? "bg-ink text-paper" : "text-ink-soft hover:bg-mist"
+                      aria-current={active ? "page" : undefined}
+                      className={`group flex min-h-11 items-center gap-3 rounded-md px-3 py-2 font-mono text-sm motion-safe:transition-colors motion-safe:duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona ${
+                        active ? "bg-mist text-ink" : "text-ink-soft hover:bg-mist hover:text-ink"
                       }`}
                     >
+                      <Icon
+                        aria-hidden="true"
+                        className="size-4 shrink-0 motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-110"
+                      />
                       {link.label}
                     </Link>
                   </li>
@@ -93,26 +113,32 @@ export default function AppNav() {
         </Link>
         <ul className="flex flex-1 flex-col gap-1">
           {links.map((link) => {
-            const active = pathname === link.href;
+            const active = isCurrentPage(link.href);
+            const Icon = link.icon;
             return (
-              <li key={link.href}>
-                <Link
-                  href={link.href}
-                  className={`block rounded-md px-3 py-2 font-mono text-sm transition-colors ${
-                    active
-                      ? "bg-ink text-paper"
-                      : "text-ink-soft hover:bg-mist hover:text-ink"
-                  }`}
-                >
-                  {link.label}
-                </Link>
+            <li key={link.href}>
+              <Link
+                href={link.href}
+                aria-current={active ? "page" : undefined}
+                className={`group flex min-h-11 items-center gap-3 rounded-md px-3 py-2 font-mono text-sm motion-safe:transition-colors motion-safe:duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona ${
+                  active
+                    ? "bg-mist text-ink"
+                    : "text-ink-soft hover:bg-mist hover:text-ink"
+                }`}
+              >
+                <Icon
+                  aria-hidden="true"
+                  className="size-4 shrink-0 motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-110"
+                />
+                {link.label}
+              </Link>
               </li>
             );
           })}
         </ul>
         <Link
           href="/"
-          className="px-2 pt-4 text-xs text-ink-soft underline decoration-line underline-offset-4 hover:text-corona"
+          className="px-2 pt-4 text-xs text-ink-soft underline decoration-line underline-offset-4 hover:text-corona focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
         >
           Back to landing
         </Link>

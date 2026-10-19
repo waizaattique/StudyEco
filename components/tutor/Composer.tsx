@@ -82,7 +82,7 @@ export default function Composer({
               event.preventDefault();
             }
           }}
-          className={`relative mb-0.5 size-11 shrink-0 rounded-full transition-colors ${
+          className={`relative mb-0.5 size-11 shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 motion-safe:active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-corona ${
             isGenerating || value.trim()
               ? "bg-ink text-paper hover:bg-corona hover:text-ink"
               : "cursor-default bg-mist text-ink-soft"
@@ -90,21 +90,21 @@ export default function Composer({
         >
           <Mic
             aria-hidden="true"
-            className={`absolute size-5 transition-opacity duration-150 ${
+            className={`absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
               !isGenerating && !value.trim() ? "opacity-100" : "opacity-0"
-            }`}
+            } ${!isGenerating && !value.trim() ? "scale-100" : "scale-75"}`}
           />
           <ArrowUp
             aria-hidden="true"
-            className={`absolute size-5 transition-opacity duration-150 ${
+            className={`absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
               !isGenerating && value.trim() ? "opacity-100" : "opacity-0"
-            }`}
+            } ${!isGenerating && value.trim() ? "scale-100" : "scale-75"}`}
           />
           <CircleStop
             aria-hidden="true"
-            className={`absolute size-5 transition-opacity duration-150 ${
+            className={`absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
               isGenerating ? "opacity-100" : "opacity-0"
-            }`}
+            } ${isGenerating ? "scale-100" : "scale-75"}`}
           />
         </Button>
       </form>
