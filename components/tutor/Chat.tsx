@@ -29,7 +29,6 @@ import {
   deleteChat,
   getChat,
   getChatSnapshot,
-  listChats,
   parseChatSnapshot,
   renameChat,
   saveChat,
@@ -266,6 +265,7 @@ export default function Chat() {
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   const activeChatIdRef = useRef<string | null>(null);
   const turnChatIdsRef = useRef(new Map<string, string>());
@@ -359,6 +359,10 @@ export default function Chat() {
   });
 
   useEffect(() => {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
     if (!error) return;
     const failedPrompt = pendingPromptRef.current;
     setInput((current) => current || failedPrompt);
@@ -374,23 +378,26 @@ export default function Chat() {
   }, [error, setMessages]);
 
   useEffect(() => {
-    if (loadedInitialChatRef.current || snapshot === null) return;
+    if (loadedInitialChatRef.current || !hasHydrated) return;
     const timer = window.setTimeout(() => {
       loadedInitialChatRef.current = true;
       if (parsedHistory.error) {
         setErrorMessage(parsedHistory.error);
         return;
       }
-      const latest = listChats(userId)[0];
-      if (latest) {
-        activeChatIdRef.current = latest.id;
-        setActiveChatId(latest.id);
-        setMessages(latest.messages);
-        setStoppedMessageIds(latest.stoppedMessageIds ?? []);
+      const requestedChatId = new URLSearchParams(window.location.search).get("chat");
+      const initialChat =
+        parsedHistory.chats.find((chat) => chat.id === requestedChatId) ??
+        parsedHistory.chats[0];
+      if (initialChat) {
+        activeChatIdRef.current = initialChat.id;
+        setActiveChatId(initialChat.id);
+        setMessages(initialChat.messages);
+        setStoppedMessageIds(initialChat.stoppedMessageIds ?? []);
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [parsedHistory.error, setMessages, snapshot, userId]);
+  }, [hasHydrated, parsedHistory, setMessages]);
 
   const isGenerating = status === "submitted" || status === "streaming";
 
