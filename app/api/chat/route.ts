@@ -7,6 +7,7 @@ import {
   type UIMessage,
 } from "ai";
 import { isTutorMessage, sanitizeMessages } from "@/lib/ai-chat/validation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   getConfiguredProvider,
   getGoogleFallbackModelId,
@@ -25,19 +26,27 @@ const MAX_MESSAGE_LENGTH = 4_000;
 const MAX_TOTAL_LENGTH = 100_000;
 const MAX_REQUEST_BODY_BYTES = 100 * 1024;
 const MAX_PARTS_PER_MESSAGE = 100;
-const RATE_LIMIT = 20;
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const MAX_RATE_LIMIT_ENTRIES = 10_000;
 const FIRST_TEXT_TIMEOUT_MS = 25_000;
 const MAX_PREFLIGHT_CHUNKS = 100;
+const IP_RATE_LIMIT = 60;
+const IP_RATE_LIMIT_WINDOW_MS = 60 * 60 * 1_000;
+const MAX_IP_RATE_LIMIT_ENTRIES = 10_000;
 const RATE_LIMIT_MESSAGE = "Too many requests. Please wait a moment.";
+const IP_RATE_LIMIT_MESSAGE =
+  "Too many requests from your network. Please try again later.";
 const PROVIDER_BUSY_MESSAGE =
   "The free model is busy. Wait a few seconds and send again.";
 const GENERIC_ERROR_MESSAGE =
   "The tutor could not finish this response. Please try again.";
 
-// Phase 5 replaces this process-local IP limit with a shared per-user limit.
-const requestsByIp = new Map<string, { count: number; windowStart: number }>();
+type IpRateLimit = {
+  windowStartedAt: number;
+  requestCount: number;
+};
+
+// These in-memory counters reset on restart and aren't shared across instances, so they only reduce abuse and don't fully stop it.
+const ipRateLimits = new Map<string, IpRateLimit>();
+
 type ModelStreamChunk = ReturnType<typeof streamText>["stream"] extends ReadableStream<
   infer Chunk
 >
@@ -46,6 +55,42 @@ type ModelStreamChunk = ReturnType<typeof streamText>["stream"] extends Readable
 
 function jsonError(message: string, status: number, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
+}
+
+function getClientIp(request: Request) {
+  for (const header of ["x-vercel-forwarded-for", "x-forwarded-for"]) {
+    const ip = request.headers.get(header)?.split(",")[0].trim();
+    if (ip) return ip;
+  }
+  return "unknown";
+}
+
+function isIpRateLimited(ip: string) {
+  const now = Date.now();
+  const existing = ipRateLimits.get(ip);
+  const windowIsActive =
+    existing && now - existing.windowStartedAt < IP_RATE_LIMIT_WINDOW_MS;
+
+  if (windowIsActive && existing.requestCount >= IP_RATE_LIMIT) {
+    ipRateLimits.delete(ip);
+    ipRateLimits.set(ip, existing);
+    return true;
+  }
+
+  if (ipRateLimits.has(ip)) {
+    ipRateLimits.delete(ip);
+  } else if (ipRateLimits.size >= MAX_IP_RATE_LIMIT_ENTRIES) {
+    const oldestIp = ipRateLimits.keys().next().value;
+    if (oldestIp !== undefined) ipRateLimits.delete(oldestIp);
+  }
+
+  ipRateLimits.set(
+    ip,
+    windowIsActive
+      ? { ...existing, requestCount: existing.requestCount + 1 }
+      : { windowStartedAt: now, requestCount: 1 },
+  );
+  return false;
 }
 
 class PreflightError extends Error {}
@@ -113,49 +158,6 @@ async function readRequestBody(
     offset += chunk.byteLength;
   }
   return { ok: true, text: new TextDecoder().decode(bytes) };
-}
-
-function getClientIp(request: Request) {
-  const forwardedFor = request.headers.get("x-forwarded-for");
-  const forwardedIp = forwardedFor?.split(",")[0]?.trim();
-  return forwardedIp || request.headers.get("x-real-ip")?.trim() || "unknown";
-}
-
-function checkRateLimit(ip: string, now: number) {
-  for (const [key, entry] of requestsByIp) {
-    if (now - entry.windowStart >= RATE_LIMIT_WINDOW_MS) {
-      requestsByIp.delete(key);
-    }
-  }
-
-  const current = requestsByIp.get(ip);
-  if (!current || now - current.windowStart >= RATE_LIMIT_WINDOW_MS) {
-    if (!current && requestsByIp.size >= MAX_RATE_LIMIT_ENTRIES) {
-      let oldestKey: string | undefined;
-      let oldestWindowStart = Number.POSITIVE_INFINITY;
-      for (const [key, entry] of requestsByIp) {
-        if (entry.windowStart < oldestWindowStart) {
-          oldestKey = key;
-          oldestWindowStart = entry.windowStart;
-        }
-      }
-      if (oldestKey !== undefined) requestsByIp.delete(oldestKey);
-    }
-    requestsByIp.set(ip, { count: 1, windowStart: now });
-    return { allowed: true, retryAfter: 0 };
-  }
-
-  if (current.count >= RATE_LIMIT) {
-    return {
-      allowed: false,
-      retryAfter: Math.ceil(
-        (current.windowStart + RATE_LIMIT_WINDOW_MS - now) / 1_000,
-      ),
-    };
-  }
-
-  current.count += 1;
-  return { allowed: true, retryAfter: 0 };
 }
 
 function readWithTimeout(
@@ -351,15 +353,39 @@ async function prepareModelStream(
 }
 
 export async function POST(request: Request) {
+  if (isIpRateLimited(getClientIp(request))) {
+    return jsonError(IP_RATE_LIMIT_MESSAGE, 429);
+  }
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("[api/chat] Session verification failed", error.message);
+  }
+  if (!data.user) {
+    return jsonError("Your session expired. Log in again.", 401);
+  }
+
   const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
   if (contentType !== "application/json") {
     return jsonError("Content-Type must be application/json.", 415);
   }
 
-  const limit = checkRateLimit(getClientIp(request), Date.now());
+  const { data: limitRows, error: limitError } = await supabase.rpc(
+    "consume_chat_rate_limit",
+  );
+  if (limitError) {
+    console.error("[api/chat] Rate limit check failed", limitError.message);
+    return jsonError("The chat service is temporarily unavailable.", 503);
+  }
+  const limit = limitRows[0];
+  if (!limit) {
+    console.error("[api/chat] Rate limit check returned no result.");
+    return jsonError("The chat service is temporarily unavailable.", 503);
+  }
   if (!limit.allowed) {
     return jsonError(RATE_LIMIT_MESSAGE, 429, {
-      "Retry-After": String(limit.retryAfter),
+      "Retry-After": String(limit.retry_after),
     });
   }
 

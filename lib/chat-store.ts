@@ -1,6 +1,5 @@
 import type { UIMessage } from "ai";
 
-export const CHAT_USER_ID = "anon";
 const CHAT_STORAGE_EVENT = "studyeco:chats-changed";
 const STORAGE_UNAVAILABLE = "__studyeco_chat_storage_unavailable__";
 const MAX_STORED_CHATS = 50;
@@ -100,7 +99,7 @@ function writeChats(userId: string, chats: StoredChat[]) {
   window.dispatchEvent(new Event(CHAT_STORAGE_EVENT));
 }
 
-export function subscribeToChats(onChange: () => void, userId = CHAT_USER_ID) {
+export function subscribeToChats(onChange: () => void, userId: string) {
   const onStorage = (event: StorageEvent) => {
     if (event.key === storageKey(userId)) onChange();
   };
@@ -112,7 +111,7 @@ export function subscribeToChats(onChange: () => void, userId = CHAT_USER_ID) {
   };
 }
 
-export function getChatSnapshot(userId = CHAT_USER_ID): string | null {
+export function getChatSnapshot(userId: string): string | null {
   if (typeof window === "undefined") return null;
   try {
     return window.localStorage.getItem(storageKey(userId));
@@ -147,18 +146,18 @@ export function parseChatSnapshot(snapshot: string | null) {
   }
 }
 
-export function listChats(userId = CHAT_USER_ID): StoredChat[] {
+export function listChats(userId: string): StoredChat[] {
   return readChats(userId).sort((left, right) => right.updatedAt - left.updatedAt);
 }
 
 export function getChat(
   chatId: string,
-  userId = CHAT_USER_ID,
+  userId: string,
 ): StoredChat | undefined {
   return readChats(userId).find((chat) => chat.id === chatId);
 }
 
-export function saveChat(chat: StoredChat, userId = CHAT_USER_ID): StoredChat[] {
+export function saveChat(chat: StoredChat, userId: string): StoredChat[] {
   const chats = readChats(userId);
   const existing = chats.find((item) => item.id === chat.id);
   const saved = {
@@ -172,7 +171,7 @@ export function saveChat(chat: StoredChat, userId = CHAT_USER_ID): StoredChat[] 
 
 export function deleteChat(
   chatId: string,
-  userId = CHAT_USER_ID,
+  userId: string,
 ): StoredChat[] {
   const chats = readChats(userId).filter((chat) => chat.id !== chatId);
   writeChats(userId, chats);
@@ -181,7 +180,7 @@ export function deleteChat(
 
 export function togglePin(
   chatId: string,
-  userId = CHAT_USER_ID,
+  userId: string,
 ): StoredChat[] {
   const chats = readChats(userId).map((chat) =>
     chat.id === chatId ? { ...chat, pinned: !chat.pinned } : chat,
@@ -193,11 +192,17 @@ export function togglePin(
 export function renameChat(
   chatId: string,
   title: string,
-  userId = CHAT_USER_ID,
+  userId: string,
 ): StoredChat[] {
   const chats = readChats(userId).map((chat) =>
     chat.id === chatId ? { ...chat, title: title.trim() } : chat,
   );
   writeChats(userId, chats);
   return listChats(userId);
+}
+
+export function clearChats(userId: string) {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(storageKey(userId));
+  window.dispatchEvent(new Event(CHAT_STORAGE_EVENT));
 }

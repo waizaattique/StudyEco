@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useChat } from "@ai-sdk/react";
+import Link from "next/link";
 import {
   DefaultChatTransport,
   type UIMessage,
@@ -21,10 +22,10 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
+import { useAuthUser } from "@/components/AuthUserProvider";
 import Composer from "@/components/tutor/Composer";
 import HistoryPanel from "@/components/tutor/HistoryPanel";
 import {
-  CHAT_USER_ID,
   deleteChat,
   getChat,
   getChatSnapshot,
@@ -51,6 +52,7 @@ const thinkingCaptions = [
 const MAX_SENT_MESSAGES = 20;
 
 let latestServerError = "";
+let latestServerStatus = 0;
 const chatTransport = new DefaultChatTransport({
   api: "/api/chat",
   prepareSendMessagesRequest: ({ messages, body }) => ({
@@ -58,7 +60,9 @@ const chatTransport = new DefaultChatTransport({
   }),
   fetch: async (input, init) => {
     latestServerError = "";
+    latestServerStatus = 0;
     const response = await fetch(input, init);
+    latestServerStatus = response.status;
     if (!response.ok) {
       try {
         const body: unknown = await response.clone().json();
@@ -242,11 +246,13 @@ function AssistantRow({
 }
 
 export default function Chat() {
+  const user = useAuthUser();
+  const userId = user.id;
   const subscribe = useCallback(
-    (callback: () => void) => subscribeToChats(callback, CHAT_USER_ID),
-    [],
+    (callback: () => void) => subscribeToChats(callback, userId),
+    [userId],
   );
-  const getSnapshot = useCallback(() => getChatSnapshot(CHAT_USER_ID), []);
+  const getSnapshot = useCallback(() => getChatSnapshot(userId), [userId]);
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => null);
   const parsedHistory = useMemo(() => parseChatSnapshot(snapshot), [snapshot]);
   const chats = parsedHistory.chats;
@@ -256,6 +262,7 @@ export default function Chat() {
   const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -289,7 +296,7 @@ export default function Chat() {
         : undefined;
       if (lastUserMessage) turnChatIdsRef.current.delete(lastUserMessage.id);
       if (!chatId || messages.length === 0 || isError || isDisconnect) return;
-      const existing = getChat(chatId, CHAT_USER_ID);
+      const existing = getChat(chatId, userId);
       const messageIds = new Set(messages.map((item) => item.id));
       const priorStoppedIds = (existing?.stoppedMessageIds ?? []).filter(
         (id) => messageIds.has(id),
@@ -307,7 +314,7 @@ export default function Chat() {
             pinned: existing?.pinned ?? false,
             stoppedMessageIds: stoppedIds,
           },
-          CHAT_USER_ID,
+          userId,
         );
         if (activeChatIdRef.current === chatId) {
           setStoppedMessageIds(stoppedIds);
@@ -319,10 +326,16 @@ export default function Chat() {
         );
       }
     },
-    [],
+    [userId],
   );
 
   const handleChatError = useCallback((error: Error) => {
+    if (latestServerStatus === 401) {
+      setSessionExpired(true);
+      setErrorMessage("");
+      return;
+    }
+    setSessionExpired(false);
     const message =
       latestServerError ||
       (error.message.includes("429")
@@ -368,7 +381,7 @@ export default function Chat() {
         setErrorMessage(parsedHistory.error);
         return;
       }
-      const latest = listChats(CHAT_USER_ID)[0];
+      const latest = listChats(userId)[0];
       if (latest) {
         activeChatIdRef.current = latest.id;
         setActiveChatId(latest.id);
@@ -377,7 +390,7 @@ export default function Chat() {
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [parsedHistory.error, setMessages, snapshot]);
+  }, [parsedHistory.error, setMessages, snapshot, userId]);
 
   const isGenerating = status === "submitted" || status === "streaming";
 
@@ -406,6 +419,7 @@ export default function Chat() {
     setStoppedMessageIds([]);
     setInput("");
     setErrorMessage("");
+    setSessionExpired(false);
     clearError();
     autoScrollRef.current = true;
     setIsAtBottom(true);
@@ -419,6 +433,7 @@ export default function Chat() {
     setStoppedMessageIds(chat.stoppedMessageIds ?? []);
     setInput("");
     setErrorMessage("");
+    setSessionExpired(false);
     clearError();
     autoScrollRef.current = true;
     setIsAtBottom(true);
@@ -441,6 +456,7 @@ export default function Chat() {
     setStoppedMessageIds((ids) => ids.filter((id) => visibleMessageIds.has(id)));
     setInput("");
     setErrorMessage("");
+    setSessionExpired(false);
     clearError();
     setGenerationKey((key) => key + 1);
     autoScrollRef.current = true;
@@ -458,7 +474,7 @@ export default function Chat() {
 
   function handleDelete(chatId: string) {
     try {
-      deleteChat(chatId, CHAT_USER_ID);
+      deleteChat(chatId, userId);
       if (activeChatIdRef.current === chatId) beginNewChat();
     } catch {
       setErrorMessage("This chat could not be deleted. Please try again.");
@@ -467,7 +483,7 @@ export default function Chat() {
 
   function handlePin(chatId: string) {
     try {
-      togglePin(chatId, CHAT_USER_ID);
+      togglePin(chatId, userId);
     } catch {
       setErrorMessage("This chat could not be updated. Please try again.");
     }
@@ -475,7 +491,7 @@ export default function Chat() {
 
   function handleRename(chatId: string, title: string) {
     try {
-      renameChat(chatId, title, CHAT_USER_ID);
+      renameChat(chatId, title, userId);
     } catch {
       setErrorMessage("This chat could not be renamed. Please try again.");
     }
@@ -699,10 +715,29 @@ export default function Chat() {
           )}
         </div>
 
-        {error && !errorMessage && (
-          <p role="alert" className="mx-auto w-full max-w-3xl px-4 text-sm text-ink-soft sm:px-8">
-            I couldn&apos;t send that message. Please try again.
+        {sessionExpired ? (
+          <p
+            role="alert"
+            className="mx-auto w-full max-w-3xl px-4 text-sm text-ink-soft sm:px-8"
+          >
+            Your session expired.{" "}
+            <Link
+              href="/login"
+              className="text-corona-dim underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
+            >
+              Log in again.
+            </Link>
           </p>
+        ) : (
+          error &&
+          !errorMessage && (
+            <p
+              role="alert"
+              className="mx-auto w-full max-w-3xl px-4 text-sm text-ink-soft sm:px-8"
+            >
+              I couldn&apos;t send that message. Please try again.
+            </p>
+          )
         )}
         <div className="shrink-0 px-3 pb-3 pt-2 sm:px-6 sm:pb-5">
           <Composer

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import {
   Activity,
@@ -16,6 +16,9 @@ import {
   Sparkles,
 } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import { useAuthUser } from "@/components/AuthUserProvider";
+import { logoutAction } from "@/app/actions/auth";
+import { clearChats } from "@/lib/chat-store";
 
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,9 +35,54 @@ const links = [
 
 export default function AppNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const user = useAuthUser();
   const [open, setOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
   const isCurrentPage = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
+
+  async function handleLogout() {
+    setLogoutError("");
+    setLoggingOut(true);
+    try {
+      clearChats(user.id);
+      const result = await logoutAction();
+      if (!result.ok) {
+        setLogoutError(result.error);
+        return;
+      }
+      router.replace("/login");
+      router.refresh();
+    } catch (error) {
+      console.error("[auth/logout] Could not clear local chat history", error);
+      setLogoutError("Local chat history could not be cleared. Please try again.");
+    } finally {
+      setLoggingOut(false);
+    }
+  }
+
+  const accountActions = (
+    <div className="border-t border-line px-2 pt-3">
+      <p className="truncate px-2 text-xs text-ink-soft" title={user.email ?? undefined}>
+        {user.email ?? "Signed in"}
+      </p>
+      {logoutError && (
+        <p className="px-2 pt-2 text-xs text-red-700" role="alert">
+          {logoutError}
+        </p>
+      )}
+      <button
+        type="button"
+        onClick={() => void handleLogout()}
+        disabled={loggingOut}
+        className="mt-2 min-h-10 w-full rounded-md px-2 text-left font-mono text-sm text-ink-soft hover:bg-mist hover:text-ink disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
+      >
+        {loggingOut ? "Logging out..." : "Log out"}
+      </button>
+    </div>
+  );
 
   return (
     <>
@@ -99,6 +147,7 @@ export default function AppNav() {
                 );
               })}
             </ul>
+            {accountActions}
           </nav>
         </div>
       )}
@@ -142,6 +191,7 @@ export default function AppNav() {
         >
           Back to landing
         </Link>
+        <div className="mt-auto">{accountActions}</div>
       </nav>
     </>
   );

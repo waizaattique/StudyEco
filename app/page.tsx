@@ -1,6 +1,13 @@
 import { BRAND } from "@/lib/brand";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function Home() {
+export default async function Home() {
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.getUser();
+  if (error) {
+    console.error("[landing] Session lookup failed", error.message);
+  }
+
   return (
     <main>
       <nav className="navbar">
@@ -23,7 +30,7 @@ export default function Home() {
 
         <p>Your all-in-one space to learn, organize, and stay on track.</p>
 
-        <a href="/signup" className="start-btn">
+        <a href={data.user ? "/dashboard" : "/signup"} className="start-btn">
           Start Now
         </a>
       </section>
