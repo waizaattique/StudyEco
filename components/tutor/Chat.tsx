@@ -49,6 +49,7 @@ const thinkingCaptions = [
   "Putting it together",
 ];
 const MAX_SENT_MESSAGES = 20;
+const subscribeToHydration = () => () => {};
 
 let latestServerError = "";
 let latestServerStatus = 0;
@@ -265,7 +266,11 @@ export default function Chat() {
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [hasHydrated, setHasHydrated] = useState(false);
+  const hasHydrated = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
 
   const activeChatIdRef = useRef<string | null>(null);
   const turnChatIdsRef = useRef(new Map<string, string>());
@@ -288,7 +293,10 @@ export default function Chat() {
       isError: boolean;
       isDisconnect: boolean;
     }) => {
-      const lastUserMessage = [...messages]
+      const finishedMessages = messages.some((item) => item.id === message.id)
+        ? messages.map((item) => (item.id === message.id ? message : item))
+        : [...messages, message];
+      const lastUserMessage = [...finishedMessages]
         .reverse()
         .find((item) => item.role === "user");
       const chatId = lastUserMessage
@@ -297,7 +305,7 @@ export default function Chat() {
       if (lastUserMessage) turnChatIdsRef.current.delete(lastUserMessage.id);
       if (!chatId || messages.length === 0 || isError || isDisconnect) return;
       const existing = getChat(chatId, userId);
-      const messageIds = new Set(messages.map((item) => item.id));
+      const messageIds = new Set(finishedMessages.map((item) => item.id));
       const priorStoppedIds = (existing?.stoppedMessageIds ?? []).filter(
         (id) => messageIds.has(id),
       );
@@ -309,7 +317,7 @@ export default function Chat() {
           {
             id: chatId,
             title: existing?.title ?? chatTitle(messages),
-            messages,
+            messages: finishedMessages,
             updatedAt: Date.now(),
             pinned: existing?.pinned ?? false,
             stoppedMessageIds: stoppedIds,
@@ -357,10 +365,6 @@ export default function Chat() {
     onFinish: saveFinishedTurn,
     onError: handleChatError,
   });
-
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
 
   useEffect(() => {
     if (!error) return;
