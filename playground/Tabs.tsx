@@ -199,7 +199,7 @@ export function Tabs({
           aria-labelledby={tabId(i)}
           tabIndex={0}
           hidden={i !== activeIndex}
-          className="rounded-b-lg rounded-tr-lg border border-t-0 border-line bg-paper px-6 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona focus-visible:ring-offset-1"
+          className="rounded-b-lg rounded-tr-lg border border-t-0 border-line bg-paper px-6 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1"
         >
           {tab.content}
         </div>
@@ -256,7 +256,7 @@ const DEMO_TABS: TabItem[] = [
               <span
                 aria-hidden="true"
                 className={`h-4 w-4 shrink-0 rounded-full border-2 ${
-                  item.done ? "border-corona bg-corona" : "border-line"
+                  item.done ? "border-ink bg-ink" : "border-line"
                 }`}
               />
               <span className={item.done ? "text-ink-soft line-through" : "text-ink"}>

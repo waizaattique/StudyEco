@@ -32,7 +32,7 @@ export default function Composer({
           event.preventDefault();
           if (!isGenerating) onSend();
         }}
-        className="flex min-h-14 w-full items-end gap-2 rounded-2xl border border-line bg-paper px-2 py-2 shadow-sm focus-within:border-corona focus-within:ring-2 focus-within:ring-corona/20 sm:px-3"
+        className="flex min-h-14 w-full items-end gap-2 rounded-2xl border border-line bg-paper px-2 py-2 shadow-sm focus-within:border-ink focus-within:ring-2 focus-within:ring-ink/20 sm:px-3"
       >
         <Button
           type="button"
@@ -82,9 +82,9 @@ export default function Composer({
               event.preventDefault();
             }
           }}
-          className={`relative mb-0.5 size-11 shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 motion-safe:active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-corona ${
+          className={`icon-hover-target group relative mb-0.5 size-11 shrink-0 rounded-full motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink ${
             isGenerating || value.trim()
-              ? "bg-ink text-paper hover:bg-corona hover:text-ink"
+              ? "bg-ink text-paper hover:bg-[#1d1c1c]"
               : "cursor-default bg-mist text-ink-soft"
           }`}
         >
@@ -96,13 +96,13 @@ export default function Composer({
           />
           <ArrowUp
             aria-hidden="true"
-            className={`absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
+            className={`icon-send-arrow absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
               !isGenerating && value.trim() ? "opacity-100" : "opacity-0"
             } ${!isGenerating && value.trim() ? "scale-100" : "scale-75"}`}
           />
           <CircleStop
             aria-hidden="true"
-            className={`absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
+            className={`icon-stop-square absolute size-5 motion-safe:transition-[opacity,transform] motion-safe:duration-150 ${
               isGenerating ? "opacity-100" : "opacity-0"
             } ${isGenerating ? "scale-100" : "scale-75"}`}
           />

@@ -57,7 +57,7 @@ export default function FormFieldPage() {
           <input
             name="reminder"
             type="checkbox"
-            className="mt-0.5 h-4 w-4 accent-[var(--color-corona)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
+            className="mt-0.5 h-4 w-4 accent-[var(--color-ink)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           />
           <span>Send me a reminder 15 minutes before this session.</span>
         </label>

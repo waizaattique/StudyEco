@@ -239,7 +239,7 @@ export function Modal({
         className={[
           "fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2",
           "rounded-xl border border-line bg-paper shadow-2xl",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona focus-visible:ring-offset-2",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2",
           className,
         ].join(" ")}
       >
@@ -490,7 +490,7 @@ function BreakEnforcementExample() {
             className={[
               "mx-auto flex h-24 w-24 items-center justify-center rounded-full",
               "border-4 transition-colors duration-500",
-              done ? "border-corona" : "border-line",
+              done ? "border-ink" : "border-line",
             ].join(" ")}
           >
             {done ? (
@@ -507,7 +507,7 @@ function BreakEnforcementExample() {
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-corona"
+                className="text-ink-soft"
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>

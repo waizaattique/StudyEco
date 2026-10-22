@@ -1,17 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronRight,
   MessageCircle,
   MoreHorizontal,
-  PanelLeftClose,
   Pin,
   PinOff,
   Search,
   SquarePen,
   Trash2,
-  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StoredChat } from "@/lib/chat-store";
@@ -19,10 +17,9 @@ import type { StoredChat } from "@/lib/chat-store";
 interface HistoryPanelProps {
   chats: StoredChat[];
   activeChatId: string | null;
-  expanded: boolean;
-  mobileOpen: boolean;
-  onExpandedChange: (expanded: boolean) => void;
-  onMobileOpenChange: (open: boolean) => void;
+  collapsed: boolean;
+  focusSearchToken: number;
+  onExpand: () => void;
   onNewChat: () => void;
   onSelectChat: (chat: StoredChat) => void;
   onTogglePin: (chatId: string) => void;
@@ -33,10 +30,9 @@ interface HistoryPanelProps {
 export default function HistoryPanel({
   chats,
   activeChatId,
-  expanded,
-  mobileOpen,
-  onExpandedChange,
-  onMobileOpenChange,
+  collapsed,
+  focusSearchToken,
+  onExpand,
   onNewChat,
   onSelectChat,
   onTogglePin,
@@ -44,16 +40,21 @@ export default function HistoryPanel({
   onDelete,
 }: HistoryPanelProps) {
   const [pinnedOpen, setPinnedOpen] = useState(true);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [menuChatId, setMenuChatId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (focusSearchToken > 0) searchInputRef.current?.focus();
+  }, [focusSearchToken]);
+
+  const normalizedQuery = query.trim().toLowerCase();
   const pinnedChats = chats.filter((chat) => chat.pinned);
   const recentChats = chats.filter(
     (chat) =>
-      !chat.pinned && chat.title.toLowerCase().includes(query.trim().toLowerCase()),
+      !chat.pinned && chat.title.toLowerCase().includes(normalizedQuery),
   );
 
   function beginRename(chat: StoredChat) {
@@ -94,11 +95,10 @@ export default function HistoryPanel({
               autoFocus
               value={renameValue}
               onChange={(event) => setRenameValue(event.target.value)}
-              onBlur={() => submitRename(chat.id)}
               onKeyDown={(event) => {
                 if (event.key === "Escape") setRenamingId(null);
               }}
-              className="h-8 w-full rounded-md border border-corona bg-paper px-2 text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-corona"
+              className="h-10 w-full rounded-md border border-ink bg-paper px-2 text-xs text-ink outline-none focus-visible:ring-2 focus-visible:ring-ink"
             />
           </form>
         ) : (
@@ -107,13 +107,10 @@ export default function HistoryPanel({
               type="button"
               variant="ghost"
               aria-current={activeChatId === chat.id ? "page" : undefined}
-              onClick={() => {
-                onSelectChat(chat);
-                onMobileOpenChange(false);
-              }}
-              className="group h-11 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
+              onClick={() => onSelectChat(chat)}
+              className="icon-hover-target group h-11 min-w-0 flex-1 justify-start gap-2 overflow-hidden px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink"
             >
-              <MessageCircle aria-hidden="true" className="size-4 shrink-0" />
+              <MessageCircle aria-hidden="true" className="icon-chat size-4 shrink-0" />
               <span className="truncate">{chat.title}</span>
             </Button>
             <Button
@@ -124,7 +121,7 @@ export default function HistoryPanel({
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuChatId(menuOpen ? null : chat.id)}
-              className="mr-1 size-11 shrink-0 opacity-100 group-hover:opacity-100 focus-visible:opacity-100 lg:size-9 lg:opacity-0"
+              className="mr-1 size-11 shrink-0 focus-visible:ring-2 focus-visible:ring-ink"
             >
               <MoreHorizontal aria-hidden="true" />
             </Button>
@@ -132,14 +129,14 @@ export default function HistoryPanel({
               <div
                 role="menu"
                 aria-label={`Actions for ${chat.title}`}
-                className="absolute right-1 top-9 z-20 w-40 rounded-lg border border-line bg-paper p-1 shadow-lg"
+                className="absolute right-1 top-10 z-20 w-40 rounded-lg border border-line bg-paper p-1 shadow-lg"
               >
                 <MenuAction
                   icon={
                     chat.pinned ? (
-                      <PinOff className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
+                      <PinOff aria-hidden="true" className="icon-drop" />
                     ) : (
-                      <Pin className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
+                      <Pin aria-hidden="true" className="icon-drop" />
                     )
                   }
                   onClick={() => {
@@ -150,15 +147,13 @@ export default function HistoryPanel({
                   {chat.pinned ? "Unpin" : "Pin"}
                 </MenuAction>
                 <MenuAction
-                  icon={
-                    <SquarePen className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
-                  }
+                  icon={<WritingIcon />}
                   onClick={() => beginRename(chat)}
                 >
                   Rename
                 </MenuAction>
                 <MenuAction
-                  icon={<Trash2 />}
+                  icon={<Trash2 aria-hidden="true" className="icon-bin-lid" />}
                   onClick={() => {
                     setMenuChatId(null);
                     if (window.confirm("Delete this conversation?")) {
@@ -176,94 +171,78 @@ export default function HistoryPanel({
     );
   }
 
-  const panelBody = (
-    <>
-      <div className="flex h-14 shrink-0 items-center justify-between border-b border-line px-3">
-        <h2 className="font-heading text-lg font-semibold">Chats</h2>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label={searchOpen ? "Close chat search" : "Search chats"}
-            title="Search chats"
-            onClick={() => {
-              setSearchOpen((open) => !open);
-              setQuery("");
-            }}
-            className="group size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
+  if (collapsed) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto py-2">
+        <RailButton label="New chat" onClick={onNewChat}>
+          <WritingIcon />
+        </RailButton>
+        <RailButton
+          label="Search recent chats"
+          onClick={() => {
+            onExpand();
+            setTimeout(() => searchInputRef.current?.focus(), 0);
+          }}
+        >
+          <Search aria-hidden="true" className="icon-scan" />
+        </RailButton>
+        {chats.map((chat) => (
+          <RailButton
+            key={chat.id}
+            label={chat.title}
+            onClick={() => onSelectChat(chat)}
+            current={activeChatId === chat.id}
           >
-            <Search aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-[1.12]" />
-          </Button>
-          {mobileOpen ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              aria-label="Close chat history"
-              title="Close chat history"
-              onClick={() => onMobileOpenChange(false)}
-              className="size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
-            >
-              <X aria-hidden="true" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-lg"
-              aria-label="Collapse chat history"
-              title="Collapse chat history"
-              onClick={() => onExpandedChange(false)}
-              className="size-11 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
-            >
-              <PanelLeftClose aria-hidden="true" />
-            </Button>
-          )}
-        </div>
+            <MessageCircle aria-hidden="true" className="icon-chat" />
+          </RailButton>
+        ))}
       </div>
+    );
+  }
 
-      {searchOpen && (
-        <label className="shrink-0 border-b border-line px-3 py-2">
-          <span className="sr-only">Search recent chats</span>
-          <input
-            autoFocus
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search chats"
-            className="h-9 w-full rounded-md border border-line bg-paper px-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-corona"
-          />
-        </label>
-      )}
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="shrink-0 px-3 pb-2 pt-3">
         <Button
           type="button"
           variant="ghost"
-          className="group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
-          onClick={() => {
-            onNewChat();
-            onMobileOpenChange(false);
-          }}
+          onClick={onNewChat}
+          className="icon-hover-target group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink"
         >
-          <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
+          <WritingIcon />
           <span>New chat</span>
         </Button>
+        <label className="group relative mt-2 block">
+          <span className="sr-only">Search recent chats</span>
+          <Search
+            aria-hidden="true"
+            className="icon-scan pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-soft"
+          />
+          <input
+            ref={searchInputRef}
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search recent chats"
+            className="h-11 w-full rounded-md border border-line bg-paper pl-9 pr-3 text-sm outline-none focus-visible:border-ink focus-visible:ring-2 focus-visible:ring-ink"
+          />
+        </label>
+      </div>
 
-        <div className="mt-4">
+      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+        <div>
           <Button
             type="button"
             variant="ghost"
             aria-expanded={pinnedOpen}
-            className="group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
+            className="icon-hover-target group h-11 w-full justify-start gap-2 px-2 text-left hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink"
             onClick={() => setPinnedOpen((open) => !open)}
           >
-            <Pin aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[20deg] motion-safe:group-hover:-translate-y-0.5" />
+            <Pin aria-hidden="true" className="icon-drop" />
             <span className="flex-1">Pinned</span>
             <ChevronRight
               aria-hidden="true"
-              className={`size-4 motion-safe:transition-transform motion-safe:duration-200 ${
-                pinnedOpen ? "motion-safe:rotate-90" : ""
+              className={`icon-chevron size-4 ${
+                pinnedOpen ? "icon-chevron-open" : ""
               }`}
             />
           </Button>
@@ -271,13 +250,15 @@ export default function HistoryPanel({
             <div className="mt-1 space-y-1">
               {pinnedChats.map(renderChatRow)}
               {pinnedChats.length === 0 && (
-                <p className="px-3 py-2 text-xs text-ink-soft">No pinned chats.</p>
+                <p className="px-3 py-2 text-xs text-ink-soft">
+                  No pinned chats.
+                </p>
               )}
             </div>
           )}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-wider text-ink-soft">
             Recents
           </p>
@@ -285,7 +266,7 @@ export default function HistoryPanel({
             {recentChats.map(renderChatRow)}
             {recentChats.length === 0 && (
               <p className="px-3 py-2 text-xs text-ink-soft">
-                {query.trim()
+                {normalizedQuery
                   ? "No matching chats."
                   : chats.length === 0
                     ? "No chats yet."
@@ -295,60 +276,7 @@ export default function HistoryPanel({
           </div>
         </div>
       </div>
-    </>
-  );
-
-  return (
-    <>
-      <aside
-        aria-label="Chat history"
-        className={`hidden h-full shrink-0 flex-col overflow-hidden border-r border-line bg-paper motion-safe:transition-[width] motion-safe:duration-200 lg:flex ${
-          expanded ? "w-64" : "w-14"
-        }`}
-      >
-        {expanded ? (
-          panelBody
-        ) : (
-          <div className="flex flex-col items-center gap-1 py-2">
-            <RailButton label="New chat" onClick={onNewChat}>
-              <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
-            </RailButton>
-            <RailButton
-              label="Expand chat history"
-              onClick={() => onExpandedChange(true)}
-            >
-              <MessageCircle aria-hidden="true" />
-            </RailButton>
-            <RailButton
-              label="Search chats"
-              onClick={() => {
-                onExpandedChange(true);
-                setSearchOpen(true);
-              }}
-            >
-              <Search aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:scale-[1.12]" />
-            </RailButton>
-          </div>
-        )}
-      </aside>
-
-      {mobileOpen && (
-        <div className="absolute inset-0 z-40 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close chat history"
-            className="absolute inset-0 bg-ink/20"
-            onClick={() => onMobileOpenChange(false)}
-          />
-          <aside
-            aria-label="Chat history"
-            className="relative flex h-full w-[min(82vw,20rem)] flex-col overflow-hidden border-r border-line bg-paper shadow-lg"
-          >
-            {panelBody}
-          </aside>
-        </div>
-      )}
-    </>
+    </div>
   );
 }
 
@@ -356,10 +284,12 @@ function RailButton({
   children,
   label,
   onClick,
+  current = false,
 }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
+  current?: boolean;
 }) {
   return (
     <Button
@@ -367,12 +297,37 @@ function RailButton({
       variant="ghost"
       size="icon-lg"
       aria-label={label}
+      aria-current={current ? "page" : undefined}
       title={label}
       onClick={onClick}
-      className="group hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
+      className={`icon-hover-target group size-11 focus-visible:ring-2 focus-visible:ring-ink ${
+        current ? "bg-mist text-ink" : ""
+      }`}
     >
       {children}
     </Button>
+  );
+}
+
+function WritingIcon() {
+  return (
+    <span className="relative inline-flex size-4 shrink-0">
+      <SquarePen aria-hidden="true" className="icon-write size-4" />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="pointer-events-none absolute inset-0 size-4 overflow-visible"
+      >
+        <path
+          d="M5 18.5h4"
+          className="icon-write-line"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeWidth="1.5"
+        />
+      </svg>
+    </span>
   );
 }
 
@@ -391,7 +346,7 @@ function MenuAction({
       variant="ghost"
       role="menuitem"
       onClick={onClick}
-      className="group h-9 w-full justify-start gap-2 px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
+      className="icon-hover-target group h-11 w-full justify-start gap-2 px-2 text-left text-xs hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink"
     >
       {icon}
       {children}

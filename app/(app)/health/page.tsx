@@ -35,7 +35,7 @@ export default async function HealthPage() {
         <dl className="mt-10 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 rounded-md border border-line px-6 py-6 text-sm">
           <dt className="font-mono text-ink-soft">Status</dt>
           <dd className="font-mono text-ink">
-            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-corona align-middle" />
+            <span className="mr-2 inline-block h-2 w-2 rounded-full bg-ink-soft align-middle" />
             {health.status}
           </dd>
 

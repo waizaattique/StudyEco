@@ -33,7 +33,7 @@ export default function PlaygroundIndexPage() {
             <li key={href} className="min-w-0">
               <Link
                 href={href}
-                className="block min-w-0 break-words py-4 transition-colors hover:text-corona focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona focus-visible:ring-offset-2"
+                className="block min-w-0 break-words py-4 transition-colors hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
               >
                 <span className="block break-words font-mono text-sm font-semibold text-ink">
                   {label}

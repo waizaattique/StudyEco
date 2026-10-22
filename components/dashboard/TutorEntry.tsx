@@ -11,7 +11,7 @@ export default function TutorEntry() {
       </p>
       <Link
         href="/ai-tutor"
-        className="mt-5 inline-flex min-h-11 items-center rounded-full bg-ink px-5 py-2 font-mono text-sm text-paper hover:bg-corona hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona focus-visible:ring-offset-2"
+        className="mt-5 inline-flex min-h-11 items-center rounded-full bg-ink px-5 py-2 font-mono text-sm text-paper hover:bg-[#1d1c1c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-2"
       >
         Open the tutor
       </Link>

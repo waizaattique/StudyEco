@@ -14,9 +14,6 @@
   --color-paper: #ffffff;
   --color-mist: #f4f4f5;
   --color-line: #d9d9d9;
-  --color-corona: #c98a1f;
-  --color-corona-dim: #a8710f;
-
   --font-sans: var(--font-dm-sans), sans-serif;
   --font-heading: var(--font-playfair), serif;
   --font-mono: var(--font-dm-mono), monospace;
@@ -77,7 +74,7 @@ body {
 }
 
 .nav-links a:hover {
-  color: var(--color-corona);
+  color: var(--color-ink-soft);
 }
 
 .login-btn {
@@ -101,14 +98,14 @@ body {
 
 .login-btn:hover,
 .start-btn:hover {
-  background: var(--color-corona);
-  color: var(--color-ink);
+  background: #1d1c1c;
+  color: var(--color-paper);
 }
 
 .nav-links a:focus-visible,
 .login-btn:focus-visible,
 .start-btn:focus-visible {
-  outline: 3px solid var(--color-corona);
+  outline: 3px solid var(--color-ink);
   outline-offset: 4px;
 }
 
@@ -203,6 +200,275 @@ body {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+.icon-write path:last-of-type {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 240ms ease-out;
+}
+
+.icon-write-line {
+  stroke-dasharray: 6;
+  stroke-dashoffset: 6;
+  transition: stroke-dashoffset 240ms ease-out;
+}
+
+.icon-scan circle {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 240ms ease-out;
+}
+
+.icon-drop {
+  transition: transform 240ms ease-out;
+}
+
+.icon-chat {
+  transition:
+    opacity 240ms ease-out,
+    transform 240ms ease-out;
+}
+
+.icon-chevron {
+  transition: none;
+}
+
+.icon-chevron-open {
+  transform: rotate(90deg);
+}
+
+.icon-bin-lid path:nth-of-type(4),
+.icon-bin-lid path:nth-of-type(5) {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transition: transform 240ms ease-out;
+}
+
+.icon-send-arrow {
+  transition:
+    opacity 240ms ease-out,
+    transform 240ms ease-out;
+}
+
+.icon-stop-square rect {
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 240ms ease-out;
+}
+
+.icon-account-avatar {
+  position: relative;
+}
+
+.icon-account-avatar::after {
+  position: absolute;
+  inset: -3px;
+  border: 1px solid var(--color-ink-soft);
+  border-radius: 9999px;
+  content: "";
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 240ms ease-out;
+}
+
+.icon-hover-target:active:not([aria-haspopup]) {
+  translate: none !important;
+}
+
+.thinking-shimmer {
+  color: var(--color-ink-soft);
+}
+
+@keyframes thinking-shimmer {
+  from {
+    background-position: 160% 0;
+  }
+
+  to {
+    background-position: -60% 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .thinking-shimmer {
+    background-image: linear-gradient(
+      100deg,
+      var(--color-ink-soft) 35%,
+      #a3a3a3 50%,
+      var(--color-ink-soft) 65%
+    );
+    background-size: 220% 100%;
+    background-clip: text;
+    color: transparent;
+    animation: thinking-shimmer 1.6s linear infinite;
+  }
+}
+
+@keyframes icon-write-stroke {
+  0%,
+  20% {
+    stroke-dashoffset: 6;
+  }
+
+  75%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes icon-write-pencil {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  35% {
+    transform: translate(1px, 1px);
+  }
+}
+
+@keyframes icon-pin-drop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  45% {
+    transform: translateY(3px);
+  }
+
+  72% {
+    transform: translateY(-1px);
+  }
+}
+
+@keyframes icon-search-scan {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+
+  30% {
+    transform: translate(0.75px, -0.75px);
+  }
+
+  65% {
+    transform: translate(0.75px, 0.75px);
+  }
+}
+
+@keyframes icon-chat-fade-up {
+  0% {
+    opacity: 0.55;
+    transform: translateY(2px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes icon-bin-lid-lift {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  40% {
+    transform: translateY(-2px);
+  }
+
+  70% {
+    transform: translateY(0.5px);
+  }
+}
+
+@keyframes icon-send-slide {
+  0%,
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  35% {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  60% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes icon-stop-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(0.82);
+  }
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .group:hover .icon-write path:last-of-type,
+  .group:focus-visible .icon-write path:last-of-type {
+    animation: icon-write-pencil 400ms ease-out both;
+  }
+
+  .group:hover .icon-write-line,
+  .group:focus-visible .icon-write-line {
+    animation: icon-write-stroke 400ms ease-out both;
+  }
+
+  .group:hover .icon-scan circle,
+  .group:focus-visible .icon-scan circle {
+    animation: icon-search-scan 400ms ease-out both;
+  }
+
+  .group:focus-within .icon-scan circle {
+    animation: icon-search-scan 400ms ease-out both;
+  }
+
+  .group:hover .icon-drop,
+  .group:focus-visible .icon-drop {
+    animation: icon-pin-drop 420ms ease-out both;
+  }
+
+  .group:hover .icon-chat,
+  .group:focus-visible .icon-chat {
+    animation: icon-chat-fade-up 350ms ease-out both;
+  }
+
+  .group:hover .icon-bin-lid path:nth-of-type(4),
+  .group:hover .icon-bin-lid path:nth-of-type(5),
+  .group:focus-visible .icon-bin-lid path:nth-of-type(4),
+  .group:focus-visible .icon-bin-lid path:nth-of-type(5) {
+    animation: icon-bin-lid-lift 380ms ease-out both;
+  }
+
+  .group:hover .icon-send-arrow,
+  .group:focus-visible .icon-send-arrow {
+    animation: icon-send-slide 350ms ease-out both;
+  }
+
+  .group:hover .icon-stop-square rect,
+  .group:focus-visible .icon-stop-square rect {
+    animation: icon-stop-pulse 380ms ease-out both;
+  }
+
+  .group:hover .icon-account-avatar::after,
+  .group:focus-visible .icon-account-avatar::after {
+    opacity: 1;
+  }
+
+  .icon-chevron {
+    transition: transform 200ms ease-out;
   }
 }
 

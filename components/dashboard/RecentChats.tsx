@@ -25,7 +25,7 @@ export default function RecentChats() {
           <p className="text-sm text-ink-soft">No saved chats yet.</p>
           <Link
             href="/ai-tutor"
-            className="inline-flex min-h-11 items-center text-sm underline decoration-line underline-offset-4 hover:text-corona-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
+            className="inline-flex min-h-11 items-center text-sm underline decoration-line underline-offset-4 hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
             Open the tutor
           </Link>
@@ -36,7 +36,7 @@ export default function RecentChats() {
             <li key={chat.id}>
               <Link
                 href={`/ai-tutor?chat=${encodeURIComponent(chat.id)}`}
-                className="flex min-h-11 min-w-0 items-center gap-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-corona"
+                className="flex min-h-11 min-w-0 items-center gap-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className="flex min-w-0 flex-1 items-center gap-2">
                   <span className="truncate text-sm">{chat.title}</span>

@@ -10,30 +10,22 @@ import {
 } from "react";
 import { useChat } from "@ai-sdk/react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   DefaultChatTransport,
   type UIMessage,
 } from "ai";
-import {
-  Menu,
-  Copy,
-  Sparkles,
-  SquarePen,
-} from "lucide-react";
+import { Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/components/AuthUserProvider";
 import Composer from "@/components/tutor/Composer";
-import HistoryPanel from "@/components/tutor/HistoryPanel";
 import {
-  deleteChat,
   getChat,
   getChatSnapshot,
   parseChatSnapshot,
-  renameChat,
   saveChat,
   subscribeToChats,
-  togglePin,
   type StoredChat,
 } from "@/lib/chat-store";
 
@@ -44,12 +36,23 @@ const suggestions = [
   "Solve the equations step by step",
 ];
 const thinkingCaptions = [
-  "Reading your question",
-  "Finding examples",
-  "Putting it together",
+  "Thinking…",
+  "Finding answers…",
+  "Putting it together…",
 ];
 const MAX_SENT_MESSAGES = 20;
 const subscribeToHydration = () => () => {};
+const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
+
+function subscribeToReducedMotion(onChange: () => void) {
+  const mediaQuery = window.matchMedia(reducedMotionQuery);
+  mediaQuery.addEventListener("change", onChange);
+  return () => mediaQuery.removeEventListener("change", onChange);
+}
+
+function getReducedMotionSnapshot() {
+  return window.matchMedia(reducedMotionQuery).matches;
+}
 
 let latestServerError = "";
 let latestServerStatus = 0;
@@ -119,7 +122,7 @@ function repairOpenCodeFence(markdown: string) {
 
 function MarkdownMessage({ text }: { text: string }) {
   return (
-    <div className="min-w-0 break-words text-sm leading-6 [&_a]:text-corona-dim [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-mist [&_code]:px-1 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:font-heading [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:font-heading [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-line [&_pre]:bg-mist [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6">
+    <div className="min-w-0 break-words text-sm leading-6 [&_a]:text-ink [&_a]:underline [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-line [&_blockquote]:pl-4 [&_code]:rounded [&_code]:bg-mist [&_code]:px-1 [&_code]:py-0.5 [&_h1]:mb-3 [&_h1]:mt-6 [&_h1]:font-heading [&_h1]:text-2xl [&_h1]:font-bold [&_h2]:mb-2 [&_h2]:mt-5 [&_h2]:font-heading [&_h2]:text-xl [&_h2]:font-semibold [&_h3]:mb-2 [&_h3]:mt-4 [&_h3]:font-heading [&_h3]:text-lg [&_h3]:font-semibold [&_li]:my-1 [&_ol]:my-3 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-2 [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-line [&_pre]:bg-mist [&_pre]:p-4 [&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6">
       <ReactMarkdown
         components={{
           code({ children, className, ...props }) {
@@ -142,32 +145,28 @@ function MarkdownMessage({ text }: { text: string }) {
 
 function ThinkingCaption({ isThinking }: { isThinking: boolean }) {
   const [captionIndex, setCaptionIndex] = useState(0);
+  const prefersReducedMotion = useSyncExternalStore(
+    subscribeToReducedMotion,
+    getReducedMotionSnapshot,
+    () => false,
+  );
 
   useEffect(() => {
-    if (!isThinking) return;
+    if (!isThinking || prefersReducedMotion) return;
     const interval = window.setInterval(
       () =>
         setCaptionIndex((index) => (index + 1) % thinkingCaptions.length),
       2_000,
     );
     return () => window.clearInterval(interval);
-  }, [isThinking]);
+  }, [isThinking, prefersReducedMotion]);
 
+  const caption = prefersReducedMotion
+    ? thinkingCaptions[0]
+    : thinkingCaptions[captionIndex];
   return (
-    <div role="status" aria-label="Thinking">
-      <p className="text-sm font-medium">Thinking...</p>
-      <p className="mt-1 text-xs text-ink-soft motion-safe:transition-opacity motion-safe:duration-300">
-        {thinkingCaptions[captionIndex]}
-      </p>
-      <div aria-hidden="true" className="mt-2 flex gap-1.5 text-corona">
-        {[0, 1, 2].map((star) => (
-          <Sparkles
-            key={star}
-            className={`size-3 ${isThinking ? "motion-safe:animate-pulse" : ""}`}
-            style={{ animationDelay: `${star * 0.18}s` }}
-          />
-        ))}
-      </div>
+    <div role="status" aria-label={caption}>
+      <p className="thinking-shimmer text-sm font-medium">{caption}</p>
     </div>
   );
 }
@@ -190,13 +189,7 @@ function AssistantRow({
   error?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <Sparkles
-        aria-hidden="true"
-        className={`mt-1 size-4 shrink-0 text-corona ${
-          isGenerating ? "motion-safe:animate-pulse" : ""
-        }`}
-      />
+    <div className="flex min-w-0 items-start">
       <div className="grid min-w-0 flex-1">
         <div
           className={`col-start-1 row-start-1 min-w-0 motion-safe:transition-opacity motion-safe:duration-300 ${
@@ -218,7 +211,7 @@ function AssistantRow({
               size="sm"
               aria-label={copied ? "Copied" : "Copy assistant message"}
               onClick={onCopy}
-              className="mt-1 h-8 gap-1.5 px-2 text-xs text-ink-soft opacity-100 hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:group-focus-within/assistant:opacity-100 focus-visible:ring-2 focus-visible:ring-corona"
+              className="mt-1 h-8 gap-1.5 px-2 text-xs text-ink-soft opacity-100 hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:group-focus-within/assistant:opacity-100 focus-visible:ring-2 focus-visible:ring-ink"
             >
               <Copy aria-hidden="true" className="size-3.5" />
               {copied ? "Copied" : "Copy"}
@@ -247,6 +240,8 @@ function AssistantRow({
 
 export default function Chat() {
   const user = useAuthUser();
+  const searchParams = useSearchParams();
+  const requestedChatId = searchParams.get("chat");
   const userId = user.id;
   const subscribe = useCallback(
     (callback: () => void) => subscribeToChats(callback, userId),
@@ -256,10 +251,7 @@ export default function Chat() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, () => null);
   const parsedHistory = useMemo(() => parseChatSnapshot(snapshot), [snapshot]);
   const chats = parsedHistory.chats;
-  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [input, setInput] = useState("");
-  const [expandedHistory, setExpandedHistory] = useState(false);
-  const [mobileHistoryOpen, setMobileHistoryOpen] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -278,6 +270,8 @@ export default function Chat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
   const loadedInitialChatRef = useRef(false);
+  const lastLoadedChatIdRef = useRef<string | null | undefined>(undefined);
+  const chatsToDiscardRef = useRef(new Set<string>());
 
   const saveFinishedTurn = useCallback(
     ({
@@ -303,7 +297,9 @@ export default function Chat() {
         ? turnChatIdsRef.current.get(lastUserMessage.id)
         : undefined;
       if (lastUserMessage) turnChatIdsRef.current.delete(lastUserMessage.id);
-      if (!chatId || messages.length === 0 || isError || isDisconnect) return;
+      if (!chatId) return;
+      if (chatsToDiscardRef.current.delete(chatId)) return;
+      if (messages.length === 0 || isError || isDisconnect) return;
       const existing = getChat(chatId, userId);
       const messageIds = new Set(finishedMessages.map((item) => item.id));
       const priorStoppedIds = (existing?.stoppedMessageIds ?? []).filter(
@@ -389,21 +385,93 @@ export default function Chat() {
         setErrorMessage(parsedHistory.error);
         return;
       }
-      const requestedChatId = new URLSearchParams(window.location.search).get("chat");
       const initialChat =
         parsedHistory.chats.find((chat) => chat.id === requestedChatId) ??
-        parsedHistory.chats[0];
+        (requestedChatId ? undefined : parsedHistory.chats[0]);
+      lastLoadedChatIdRef.current = requestedChatId;
       if (initialChat) {
         activeChatIdRef.current = initialChat.id;
-        setActiveChatId(initialChat.id);
         setMessages(initialChat.messages);
         setStoppedMessageIds(initialChat.stoppedMessageIds ?? []);
       }
     }, 0);
     return () => window.clearTimeout(timer);
-  }, [hasHydrated, parsedHistory, setMessages]);
+  }, [hasHydrated, parsedHistory, requestedChatId, setMessages]);
 
   const isGenerating = status === "submitted" || status === "streaming";
+
+  const beginNewChat = useCallback(() => {
+    if (isGenerating) stop();
+    activeChatIdRef.current = null;
+    lastLoadedChatIdRef.current = null;
+    setMessages([]);
+    setStoppedMessageIds([]);
+    setInput("");
+    setErrorMessage("");
+    setSessionExpired(false);
+    clearError();
+    autoScrollRef.current = true;
+    setIsAtBottom(true);
+  }, [clearError, isGenerating, setMessages, stop]);
+
+  const selectChat = useCallback(
+    (chat: StoredChat) => {
+      if (isGenerating) stop();
+      activeChatIdRef.current = chat.id;
+      lastLoadedChatIdRef.current = chat.id;
+      setMessages(chat.messages);
+      setStoppedMessageIds(chat.stoppedMessageIds ?? []);
+      setInput("");
+      setErrorMessage("");
+      setSessionExpired(false);
+      clearError();
+      autoScrollRef.current = true;
+      setIsAtBottom(true);
+    },
+    [clearError, isGenerating, setMessages, stop],
+  );
+
+  useEffect(() => {
+    if (!loadedInitialChatRef.current) return;
+    if (requestedChatId === lastLoadedChatIdRef.current) return;
+    const timer = window.setTimeout(() => {
+      lastLoadedChatIdRef.current = requestedChatId;
+      if (!requestedChatId) {
+        beginNewChat();
+        return;
+      }
+      const requestedChat = chats.find((chat) => chat.id === requestedChatId);
+      if (requestedChat) {
+        selectChat(requestedChat);
+      } else {
+        beginNewChat();
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [beginNewChat, chats, requestedChatId, selectChat]);
+
+  useEffect(() => {
+    function onChatDeleted(event: Event) {
+      const { chatId } = (event as CustomEvent<{ chatId: string }>).detail;
+      if (activeChatIdRef.current !== chatId) return;
+      chatsToDiscardRef.current.add(chatId);
+      beginNewChat();
+    }
+    function onLogout() {
+      const chatIds = new Set(turnChatIdsRef.current.values());
+      if (activeChatIdRef.current) chatIds.add(activeChatIdRef.current);
+      for (const chatId of chatIds) chatsToDiscardRef.current.add(chatId);
+      beginNewChat();
+    }
+    window.addEventListener("studyeco:new-chat", beginNewChat);
+    window.addEventListener("studyeco:chat-deleted", onChatDeleted);
+    window.addEventListener("studyeco:logout", onLogout);
+    return () => {
+      window.removeEventListener("studyeco:new-chat", beginNewChat);
+      window.removeEventListener("studyeco:chat-deleted", onChatDeleted);
+      window.removeEventListener("studyeco:logout", onLogout);
+    };
+  }, [beginNewChat]);
 
   useEffect(() => {
     if (!autoScrollRef.current || !scrollRef.current) return;
@@ -422,34 +490,6 @@ export default function Chat() {
     setIsAtBottom(atBottom);
   }
 
-  function beginNewChat() {
-    if (isGenerating) stop();
-    activeChatIdRef.current = null;
-    setActiveChatId(null);
-    setMessages([]);
-    setStoppedMessageIds([]);
-    setInput("");
-    setErrorMessage("");
-    setSessionExpired(false);
-    clearError();
-    autoScrollRef.current = true;
-    setIsAtBottom(true);
-  }
-
-  function selectChat(chat: StoredChat) {
-    if (isGenerating) stop();
-    activeChatIdRef.current = chat.id;
-    setActiveChatId(chat.id);
-    setMessages(chat.messages);
-    setStoppedMessageIds(chat.stoppedMessageIds ?? []);
-    setInput("");
-    setErrorMessage("");
-    setSessionExpired(false);
-    clearError();
-    autoScrollRef.current = true;
-    setIsAtBottom(true);
-  }
-
   function submitText(value = input) {
     const text = value.trim();
     if (!text || isGenerating) return;
@@ -458,7 +498,6 @@ export default function Chat() {
     if (!chatId) {
       chatId = crypto.randomUUID();
       activeChatIdRef.current = chatId;
-      setActiveChatId(chatId);
     }
     pendingPromptRef.current = text;
     const messageId = crypto.randomUUID();
@@ -481,31 +520,6 @@ export default function Chat() {
 
   function handleStop() {
     stop();
-  }
-
-  function handleDelete(chatId: string) {
-    try {
-      deleteChat(chatId, userId);
-      if (activeChatIdRef.current === chatId) beginNewChat();
-    } catch {
-      setErrorMessage("This chat could not be deleted. Please try again.");
-    }
-  }
-
-  function handlePin(chatId: string) {
-    try {
-      togglePin(chatId, userId);
-    } catch {
-      setErrorMessage("This chat could not be updated. Please try again.");
-    }
-  }
-
-  function handleRename(chatId: string, title: string) {
-    try {
-      renameChat(chatId, title, userId);
-    } catch {
-      setErrorMessage("This chat could not be renamed. Please try again.");
-    }
   }
 
   async function copyAssistantMessage(messageId: string, text: string) {
@@ -538,52 +552,9 @@ export default function Chat() {
   return (
     <section
       aria-label="AI Tutor"
-      className="relative flex h-[calc(100dvh-69px)] min-h-0 w-full overflow-hidden bg-paper text-ink lg:h-dvh"
+      className="relative flex h-full min-h-0 w-full overflow-hidden bg-paper text-ink"
     >
-      <HistoryPanel
-        chats={chats}
-        activeChatId={activeChatId}
-        expanded={expandedHistory}
-        mobileOpen={mobileHistoryOpen}
-        onExpandedChange={setExpandedHistory}
-        onMobileOpenChange={setMobileHistoryOpen}
-        onNewChat={beginNewChat}
-        onSelectChat={selectChat}
-        onTogglePin={handlePin}
-        onRename={handleRename}
-        onDelete={handleDelete}
-      />
-
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <header className="flex h-14 shrink-0 items-center justify-between border-b border-line px-3 sm:px-5 lg:justify-end">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-lg"
-            aria-label="Open chat history"
-            title="Chat history"
-            className="size-11 lg:hidden"
-            onClick={() => setMobileHistoryOpen(true)}
-          >
-            <Menu aria-hidden="true" />
-          </Button>
-          <div className="flex items-center gap-1">
-            {activeChatId && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-lg"
-                aria-label="New chat"
-                title="New chat"
-                onClick={beginNewChat}
-                className="group hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-corona"
-              >
-                <SquarePen aria-hidden="true" className="motion-safe:transition-transform motion-safe:duration-150 motion-safe:group-hover:rotate-[-12deg]" />
-              </Button>
-            )}
-          </div>
-        </header>
-
         <div
           ref={scrollRef}
           onScroll={updateScrollPosition}
@@ -592,9 +563,6 @@ export default function Chat() {
         >
           {messages.length === 0 && !errorMessage ? (
             <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
-              <div className="mb-4 flex size-12 items-center justify-center rounded-2xl border border-line bg-paper text-corona">
-                <Sparkles aria-hidden="true" className="size-6" />
-              </div>
               <h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
                 AI Tutor
               </h1>
@@ -611,12 +579,8 @@ export default function Chat() {
                     type="button"
                     onClick={() => submitText(suggestion)}
                     style={{ animationDelay: `${index * 80}ms` }}
-                    className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-corona"
+                    className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                   >
-                    <Sparkles
-                      aria-hidden="true"
-                      className="mr-2 inline size-3 text-corona"
-                    />
                     {suggestion}
                   </button>
                 ))}
@@ -734,7 +698,7 @@ export default function Chat() {
             Your session expired.{" "}
             <Link
               href="/login"
-              className="text-corona-dim underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-corona"
+              className="text-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
             >
               Log in again.
             </Link>

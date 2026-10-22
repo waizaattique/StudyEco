@@ -23,12 +23,16 @@ export default async function AppLayout({
     redirect(`/login?redirectTo=${encodeURIComponent(destination)}`);
   }
 
-  const user = { id: data.user.id, email: data.user.email ?? null };
+  const user = {
+    id: data.user.id,
+    email: data.user.email ?? null,
+    userMetadata: data.user.user_metadata,
+  };
   return (
     <AuthUserProvider user={user}>
-      <div className="lg:flex">
+      <div className="flex h-dvh min-h-0 flex-col overflow-hidden lg:flex-row">
         <AppNav />
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">{children}</main>
       </div>
     </AuthUserProvider>
   );
