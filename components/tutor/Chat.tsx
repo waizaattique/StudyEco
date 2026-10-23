@@ -28,6 +28,13 @@ import {
   subscribeToChats,
   type StoredChat,
 } from "@/lib/chat-store";
+import {
+  formatDaySeparator,
+  formatMessageTime,
+  getCalendarDayDiff,
+  isMessageMetadata,
+  type MessageMetadata,
+} from "@/lib/chat-date";
 
 const suggestions = [
   "Explain Data Structures and Algorithms",
@@ -179,6 +186,7 @@ function AssistantRow({
   copied = false,
   stopped,
   error,
+  timestamp,
 }: {
   text: string;
   isThinking: boolean;
@@ -187,6 +195,7 @@ function AssistantRow({
   copied?: boolean;
   stopped: boolean;
   error?: boolean;
+  timestamp?: number;
 }) {
   return (
     <div className="flex min-w-0 items-start">
@@ -204,24 +213,34 @@ function AssistantRow({
           ) : (
             <MarkdownMessage text={text} />
           )}
-          {!isGenerating && !error && text && onCopy && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={copied ? "Copied" : "Copy assistant message"}
-              onClick={onCopy}
-              className="mt-1 h-8 gap-1.5 px-2 text-xs text-ink-soft opacity-100 hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 sm:opacity-0 sm:group-hover/assistant:opacity-100 sm:group-focus-within/assistant:opacity-100 focus-visible:ring-2 focus-visible:ring-ink"
-            >
-              <Copy aria-hidden="true" className="size-3.5" />
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          )}
-          {stopped && (
-            <span className="mt-1 block text-[11px] text-ink-soft">
-              Stopped
-            </span>
-          )}
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            {!isGenerating && !error && text && onCopy && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={copied ? "Copied" : "Copy assistant message"}
+                onClick={onCopy}
+                className="h-8 gap-1.5 px-2 text-xs text-ink-soft opacity-100 hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink"
+              >
+                <Copy aria-hidden="true" className="size-3.5" />
+                {copied ? "Copied" : "Copy"}
+              </Button>
+            )}
+            {stopped && (
+              <span className="text-[11px] text-ink-soft">
+                Stopped
+              </span>
+            )}
+            {timestamp !== undefined && (
+              <time
+                dateTime={new Date(timestamp).toISOString()}
+                className="font-mono text-xs text-ink-soft"
+              >
+                {formatMessageTime(timestamp)}
+              </time>
+            )}
+          </div>
         </div>
         {isGenerating && (
           <div
@@ -287,9 +306,20 @@ export default function Chat() {
       isError: boolean;
       isDisconnect: boolean;
     }) => {
+      const finishedTurnTimestamp = Date.now();
+      const messageWithMeta: UIMessage = {
+        ...message,
+        metadata: {
+          ...(isMessageMetadata(message.metadata) ? message.metadata : {}),
+          createdAt:
+            isMessageMetadata(message.metadata) && typeof message.metadata?.createdAt === "number"
+              ? message.metadata.createdAt
+              : finishedTurnTimestamp,
+        },
+      };
       const finishedMessages = messages.some((item) => item.id === message.id)
-        ? messages.map((item) => (item.id === message.id ? message : item))
-        : [...messages, message];
+        ? messages.map((item) => (item.id === message.id ? messageWithMeta : item))
+        : [...messages, messageWithMeta];
       const lastUserMessage = [...finishedMessages]
         .reverse()
         .find((item) => item.role === "user");
@@ -515,6 +545,7 @@ export default function Chat() {
       id: messageId,
       role: "user",
       parts: [{ type: "text", text }],
+      metadata: { createdAt: Date.now() },
     });
   }
 
@@ -599,15 +630,41 @@ export default function Chat() {
                 </p>
               )}
               {messages.map((message, index) => {
+                const prevMessage = index > 0 ? messages[index - 1] : undefined;
+                const messageMeta = isMessageMetadata(message.metadata) ? message.metadata : undefined;
+                const prevMeta = prevMessage && isMessageMetadata(prevMessage.metadata) ? prevMessage.metadata : undefined;
+                const currentCreatedAt = messageMeta?.createdAt;
+                const prevCreatedAt = prevMeta?.createdAt;
+
+                const showDaySeparator =
+                  hasHydrated &&
+                  currentCreatedAt !== undefined &&
+                  (prevCreatedAt === undefined ||
+                    getCalendarDayDiff(prevCreatedAt, currentCreatedAt) !== 0);
+
                 if (message.role === "user") {
                   return (
-                    <div
-                      key={message.id}
-                      className="flex justify-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200"
-                    >
-                      <p className="max-w-[min(34rem,90%)] whitespace-pre-wrap rounded-2xl border border-line bg-paper px-4 py-3 text-sm leading-6 shadow-sm">
-                        {messageText(message)}
-                      </p>
+                    <div key={message.id} className="space-y-4">
+                      {showDaySeparator && (
+                        <div className="flex items-center justify-center py-2">
+                          <span className="rounded-full border border-line bg-mist px-3 py-1 font-mono text-xs text-ink-soft">
+                            {formatDaySeparator(currentCreatedAt)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex flex-col items-end motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-200">
+                        <p className="max-w-[min(34rem,90%)] whitespace-pre-wrap rounded-2xl border border-line bg-paper px-4 py-3 text-sm leading-6 shadow-sm">
+                          {messageText(message)}
+                        </p>
+                        {hasHydrated && currentCreatedAt !== undefined && (
+                          <time
+                            dateTime={new Date(currentCreatedAt).toISOString()}
+                            className="mt-1 px-1 font-mono text-xs text-ink-soft"
+                          >
+                            {formatMessageTime(currentCreatedAt)}
+                          </time>
+                        )}
+                      </div>
                     </div>
                   );
                 }
@@ -615,22 +672,32 @@ export default function Chat() {
                 const isLastStreamingAssistant =
                   showStreamAssistant && index === messages.length - 1;
                 return (
-                  <div
-                    className="group/assistant motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
-                    key={
-                      isLastStreamingAssistant
-                        ? `streaming-assistant-${generationKey}`
-                        : message.id
-                    }
-                  >
-                    <AssistantRow
-                      text={messageText(message)}
-                      isThinking={isLastStreamingAssistant && !messageText(message)}
-                      isGenerating={isLastStreamingAssistant}
-                      onCopy={() => void copyAssistantMessage(message.id, messageText(message))}
-                      copied={copiedMessageId === message.id}
-                      stopped={stoppedMessageIds.includes(message.id)}
-                    />
+                  <div key={message.id} className="space-y-4">
+                    {showDaySeparator && (
+                      <div className="flex items-center justify-center py-2">
+                        <span className="rounded-full border border-line bg-mist px-3 py-1 font-mono text-xs text-ink-soft">
+                          {formatDaySeparator(currentCreatedAt)}
+                        </span>
+                      </div>
+                    )}
+                    <div
+                      className="group/assistant motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+                      key={
+                        isLastStreamingAssistant
+                          ? `streaming-assistant-${generationKey}`
+                          : message.id
+                      }
+                    >
+                      <AssistantRow
+                        text={messageText(message)}
+                        isThinking={isLastStreamingAssistant && !messageText(message)}
+                        isGenerating={isLastStreamingAssistant}
+                        onCopy={() => void copyAssistantMessage(message.id, messageText(message))}
+                        copied={copiedMessageId === message.id}
+                        stopped={stoppedMessageIds.includes(message.id)}
+                        timestamp={hasHydrated ? currentCreatedAt : undefined}
+                      />
+                    </div>
                   </div>
                 );
               })}

@@ -10,6 +10,7 @@ export interface StoredChat {
   id: string;
   title: string;
   messages: UIMessage[];
+  createdAt?: number;
   updatedAt: number;
   pinned: boolean;
   stoppedMessageIds?: string[];
@@ -29,6 +30,8 @@ function isStoredChat(value: unknown): value is StoredChat {
     chat.title.length <= 1_000 &&
     Array.isArray(chat.messages) &&
     chat.messages.every(isStoredMessage) &&
+    (chat.createdAt === undefined ||
+      (typeof chat.createdAt === "number" && Number.isFinite(chat.createdAt))) &&
     typeof chat.updatedAt === "number" &&
     Number.isFinite(chat.updatedAt) &&
     typeof chat.pinned === "boolean" &&
@@ -160,8 +163,10 @@ export function getChat(
 export function saveChat(chat: StoredChat, userId: string): StoredChat[] {
   const chats = readChats(userId);
   const existing = chats.find((item) => item.id === chat.id);
-  const saved = {
+  const createdAt = existing?.createdAt ?? chat.createdAt ?? Date.now();
+  const saved: StoredChat = {
     ...chat,
+    createdAt,
     pinned: existing?.pinned ?? chat.pinned,
     title: existing?.title || chat.title,
   };

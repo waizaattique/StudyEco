@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ChevronRight,
   MessageCircle,
@@ -13,6 +13,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { StoredChat } from "@/lib/chat-store";
+import { groupChatsByCalendarDate } from "@/lib/chat-date";
+
+const subscribeToHydration = () => () => {};
 
 interface HistoryPanelProps {
   chats: StoredChat[];
@@ -45,6 +48,11 @@ export default function HistoryPanel({
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const hasMounted = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
 
   useEffect(() => {
     if (focusSearchToken > 0) searchInputRef.current?.focus();
@@ -56,6 +64,11 @@ export default function HistoryPanel({
     (chat) =>
       !chat.pinned && chat.title.toLowerCase().includes(normalizedQuery),
   );
+
+  const groupedRecents = useMemo(() => {
+    if (!hasMounted || normalizedQuery) return [];
+    return groupChatsByCalendarDate(recentChats);
+  }, [hasMounted, normalizedQuery, recentChats]);
 
   function beginRename(chat: StoredChat) {
     setRenamingId(chat.id);
@@ -259,21 +272,57 @@ export default function HistoryPanel({
         </div>
 
         <div className="mt-4">
-          <p className="px-3 pb-1 font-mono text-[10px] uppercase tracking-wider text-ink-soft">
-            Recents
-          </p>
-          <div className="space-y-1">
-            {recentChats.map(renderChatRow)}
-            {recentChats.length === 0 && (
-              <p className="px-3 py-2 text-xs text-ink-soft">
-                {normalizedQuery
-                  ? "No matching chats."
-                  : chats.length === 0
-                    ? "No chats yet."
-                    : "No recent chats."}
+          {normalizedQuery ? (
+            <div>
+              <p className="px-3 pb-1 font-mono text-xs uppercase tracking-wider text-ink-soft">
+                Recents
               </p>
-            )}
-          </div>
+              <div className="space-y-1">
+                {recentChats.map(renderChatRow)}
+                {recentChats.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-ink-soft">
+                    No matching chats.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : !hasMounted ? (
+            <div>
+              <p className="px-3 pb-1 font-mono text-xs uppercase tracking-wider text-ink-soft">
+                Recents
+              </p>
+              <div className="space-y-1">
+                {recentChats.map(renderChatRow)}
+                {recentChats.length === 0 && (
+                  <p className="px-3 py-2 text-xs text-ink-soft">
+                    {chats.length === 0 ? "No chats yet." : "No recent chats."}
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : groupedRecents.length === 0 ? (
+            <div>
+              <p className="px-3 pb-1 font-mono text-xs uppercase tracking-wider text-ink-soft">
+                Recents
+              </p>
+              <p className="px-3 py-2 text-xs text-ink-soft">
+                {chats.length === 0 ? "No chats yet." : "No recent chats."}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groupedRecents.map((group) => (
+                <div key={group.key}>
+                  <p className="px-3 pb-1 font-mono text-xs uppercase tracking-wider text-ink-soft">
+                    {group.label}
+                  </p>
+                  <div className="space-y-1">
+                    {group.items.map(renderChatRow)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import type { UIMessage } from "ai";
+import { isMessageMetadata } from "@/lib/chat-date";
 
 const MAX_ASSISTANT_MESSAGE_LENGTH = 20_000;
 
@@ -42,7 +43,8 @@ export function isTutorMessage(value: unknown): value is UIMessage {
   if (
     typeof message.id !== "string" ||
     (message.role !== "user" && message.role !== "assistant") ||
-    !Array.isArray(message.parts)
+    !Array.isArray(message.parts) ||
+    !isMessageMetadata(message.metadata)
   ) {
     return false;
   }
