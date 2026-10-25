@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   ChevronRight,
   MessageCircle,
@@ -65,10 +65,10 @@ export default function HistoryPanel({
       !chat.pinned && chat.title.toLowerCase().includes(normalizedQuery),
   );
 
-  const groupedRecents = useMemo(() => {
-    if (!hasMounted || normalizedQuery) return [];
-    return groupChatsByCalendarDate(recentChats);
-  }, [hasMounted, normalizedQuery, recentChats]);
+  const groupedRecents =
+    !hasMounted || normalizedQuery
+      ? []
+      : groupChatsByCalendarDate(recentChats);
 
   function beginRename(chat: StoredChat) {
     setRenamingId(chat.id);

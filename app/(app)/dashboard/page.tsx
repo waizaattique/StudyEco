@@ -1,4 +1,5 @@
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
+import QuestionsChart from "@/components/dashboard/QuestionsChart";
 import RecentChats from "@/components/dashboard/RecentChats";
 import Roadmap from "@/components/dashboard/Roadmap";
 import TutorActivity from "@/components/dashboard/TutorActivity";
@@ -10,8 +11,9 @@ export default function DashboardPage() {
       <DashboardHeader />
 
       <div className="grid gap-12 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] lg:gap-14">
-        <div className="min-w-0">
+        <div className="min-w-0 space-y-12">
           <TutorEntry />
+          <QuestionsChart />
           <RecentChats />
         </div>
 

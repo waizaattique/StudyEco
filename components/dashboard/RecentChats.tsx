@@ -10,22 +10,22 @@ export default function RecentChats() {
 
   return (
     <section aria-labelledby="recent-chats-title" className="border-t border-line pt-7">
-      <h2 id="recent-chats-title" className="text-lg font-medium">
+      <h2 id="recent-chats-title" className="text-lg font-semibold text-ink sm:text-xl">
         Recent chats
       </h2>
 
       {!ready ? (
         <div aria-hidden="true" className="mt-4 min-h-[220px] border-y border-line" />
       ) : error ? (
-        <p className="mt-4 border-y border-line py-4 text-sm leading-6 text-ink-soft" role="alert">
+        <p className="mt-4 border-y border-line py-4 text-[15px] leading-6 text-ink-soft" role="alert">
           {error}
         </p>
       ) : recentChats.length === 0 ? (
         <div className="mt-4 flex min-h-[220px] flex-col items-start justify-center gap-2 border-y border-line py-5">
-          <p className="text-sm text-ink-soft">No saved chats yet.</p>
+          <p className="text-[15px] text-ink-soft">No saved chats yet.</p>
           <Link
             href="/ai-tutor"
-            className="inline-flex min-h-11 items-center text-sm underline decoration-line underline-offset-4 hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
+            className="inline-flex min-h-11 items-center text-[15px] font-medium underline decoration-line underline-offset-4 hover:text-ink-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink"
           >
             Open the tutor
           </Link>
@@ -39,7 +39,7 @@ export default function RecentChats() {
                 className="flex min-h-11 min-w-0 items-center gap-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ink"
               >
                 <span className="flex min-w-0 flex-1 items-center gap-2">
-                  <span className="truncate text-sm">{chat.title}</span>
+                  <span className="truncate text-[15px] font-medium text-ink">{chat.title}</span>
                   {chat.pinned && (
                     <>
                       <Pin aria-hidden="true" className="size-3.5 shrink-0 text-ink-soft" />
@@ -49,7 +49,7 @@ export default function RecentChats() {
                 </span>
                 <time
                   dateTime={new Date(chat.updatedAt).toISOString()}
-                  className="shrink-0 font-mono text-[11px] text-ink-soft"
+                  className="shrink-0 font-mono text-xs font-medium text-ink-soft"
                 >
                   {relativeTime(chat.updatedAt, now)}
                 </time>

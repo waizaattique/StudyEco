@@ -33,8 +33,8 @@ import {
   formatMessageTime,
   getCalendarDayDiff,
   isMessageMetadata,
-  type MessageMetadata,
 } from "@/lib/chat-date";
+import { incrementTodayQuestions } from "@/lib/activity-store";
 
 const suggestions = [
   "Explain Data Structures and Algorithms",
@@ -330,6 +330,7 @@ export default function Chat() {
       if (!chatId) return;
       if (chatsToDiscardRef.current.delete(chatId)) return;
       if (messages.length === 0 || isError || isDisconnect) return;
+      incrementTodayQuestions(userId);
       const existing = getChat(chatId, userId);
       const messageIds = new Set(finishedMessages.map((item) => item.id));
       const priorStoppedIds = (existing?.stoppedMessageIds ?? []).filter(
@@ -520,34 +521,38 @@ export default function Chat() {
     setIsAtBottom(atBottom);
   }
 
-  function submitText(value = input) {
-    const text = value.trim();
-    if (!text || isGenerating) return;
+  const submitText = useCallback(
+    (value = input) => {
+      const text = value.trim();
+      if (!text || isGenerating) return;
 
-    let chatId = activeChatIdRef.current;
-    if (!chatId) {
-      chatId = crypto.randomUUID();
-      activeChatIdRef.current = chatId;
-    }
-    pendingPromptRef.current = text;
-    const messageId = crypto.randomUUID();
-    turnChatIdsRef.current.set(messageId, chatId);
-    const visibleMessageIds = new Set(messages.map((message) => message.id));
-    setStoppedMessageIds((ids) => ids.filter((id) => visibleMessageIds.has(id)));
-    setInput("");
-    setErrorMessage("");
-    setSessionExpired(false);
-    clearError();
-    setGenerationKey((key) => key + 1);
-    autoScrollRef.current = true;
-    setIsAtBottom(true);
-    void sendMessage({
-      id: messageId,
-      role: "user",
-      parts: [{ type: "text", text }],
-      metadata: { createdAt: Date.now() },
-    });
-  }
+      let chatId = activeChatIdRef.current;
+      if (!chatId) {
+        chatId = crypto.randomUUID();
+        activeChatIdRef.current = chatId;
+      }
+      pendingPromptRef.current = text;
+      const messageId = crypto.randomUUID();
+      turnChatIdsRef.current.set(messageId, chatId);
+      const visibleMessageIds = new Set(messages.map((message) => message.id));
+      setStoppedMessageIds((ids) => ids.filter((id) => visibleMessageIds.has(id)));
+      setInput("");
+      setErrorMessage("");
+      setSessionExpired(false);
+      clearError();
+      setGenerationKey((key) => key + 1);
+      autoScrollRef.current = true;
+      setIsAtBottom(true);
+      const userMessageTimestamp = Date.now();
+      void sendMessage({
+        id: messageId,
+        role: "user",
+        parts: [{ type: "text", text }],
+        metadata: { createdAt: userMessageTimestamp },
+      });
+    },
+    [clearError, input, isGenerating, messages, sendMessage],
+  );
 
   function handleStop() {
     stop();

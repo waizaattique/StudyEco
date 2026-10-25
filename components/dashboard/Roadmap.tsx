@@ -8,19 +8,19 @@ const upcomingFeatures = [
 export default function Roadmap() {
   return (
     <section aria-labelledby="roadmap-title">
-      <h2 id="roadmap-title" className="text-base font-medium">
+      <h2 id="roadmap-title" className="text-lg font-semibold text-ink sm:text-xl">
         On the roadmap
       </h2>
       <ul className="mt-4 divide-y divide-line border-y border-line">
         {upcomingFeatures.map((feature) => (
           <li key={feature.name} className="py-3">
             <div className="flex min-h-6 items-center justify-between gap-3">
-              <h3 className="text-sm font-medium">{feature.name}</h3>
-              <span className="shrink-0 font-mono text-[10px] uppercase tracking-wide text-ink-soft">
+              <h3 className="text-[15px] font-medium text-ink">{feature.name}</h3>
+              <span className="shrink-0 font-mono text-xs font-medium uppercase tracking-wide text-ink-soft">
                 Not built yet
               </span>
             </div>
-            <p className="mt-1 text-sm leading-5 text-ink-soft">
+            <p className="mt-1 text-[15px] leading-6 text-ink-soft">
               {feature.purpose}
             </p>
           </li>

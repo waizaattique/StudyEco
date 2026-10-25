@@ -426,7 +426,7 @@ function BreakEnforcementExample() {
   useEffect(() => {
     if (!open) return;
 
-    setRemaining(BREAK_SECONDS);
+    setTimeout(() => setRemaining(BREAK_SECONDS), 0);
 
     const timer = setInterval(() => {
       setRemaining((prev) => {
