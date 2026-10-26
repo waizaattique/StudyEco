@@ -210,4 +210,64 @@ export function clearChats(userId: string) {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(storageKey(userId));
   window.dispatchEvent(new Event(CHAT_STORAGE_EVENT));
+} 
+
+// Reaction helpers for message like/dislike
+export function getMessageReactions(userId: string): Record<string, 'like' | 'dislike' | null> {
+  if (typeof window === 'undefined') return {};
+  const raw = window.localStorage.getItem(`studyeco:message-reactions:${userId}`);
+  try {
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
 }
+
+export function setMessageReaction(
+  userId: string,
+  messageId: string,
+  reaction: 'like' | 'dislike' | null,
+) {
+  const map = getMessageReactions(userId);
+  if (reaction) {
+    map[messageId] = reaction;
+  } else {
+    delete map[messageId];
+  }
+  window.localStorage.setItem(`studyeco:message-reactions:${userId}`, JSON.stringify(map));
+  window.dispatchEvent(new Event('studyeco:message-reactions-changed'));
+}
+
+// Edit helpers for user messages
+export function replaceUserMessage(
+  chatId: string,
+  messageId: string,
+  newText: string,
+  userId: string,
+) {
+  const chat = getChat(chatId, userId);
+  if (!chat) return;
+  const newMessages = chat.messages.map((msg) => {
+    if (msg.id !== messageId) return msg;
+    const newMsg: UIMessage = {
+      ...msg,
+      parts: [{ type: 'text', text: newText }],
+    };
+    return newMsg;
+  });
+  saveChat({ ...chat, messages: newMessages }, userId);
+}
+
+export function truncateChatAfter(
+  chatId: string,
+  messageId: string,
+  userId: string,
+) {
+  const chat = getChat(chatId, userId);
+  if (!chat) return;
+  const index = chat.messages.findIndex((msg) => msg.id === messageId);
+  if (index === -1) return;
+  const truncated = chat.messages.slice(0, index + 1);
+  saveChat({ ...chat, messages: truncated }, userId);
+}
+

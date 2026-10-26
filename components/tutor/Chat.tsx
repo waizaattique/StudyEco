@@ -1,5 +1,7 @@
 "use client";
 
+
+
 import {
   useCallback,
   useEffect,
@@ -19,7 +21,10 @@ import { Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/components/AuthUserProvider";
+import { getMessageReactions, setMessageReaction, replaceUserMessage, truncateChatAfter } from "@/lib/chat-store";
+import { ThumbsUp, ThumbsDown, Pencil } from "lucide-react";
 import Composer from "@/components/tutor/Composer";
+import TutorHome from "@/components/tutor/TutorHome";
 import {
   getChat,
   getChatSnapshot,
@@ -187,6 +192,7 @@ function AssistantRow({
   stopped,
   error,
   timestamp,
+  messageId,
 }: {
   text: string;
   isThinking: boolean;
@@ -196,7 +202,16 @@ function AssistantRow({
   stopped: boolean;
   error?: boolean;
   timestamp?: number;
+  messageId: string;
 }) {
+  const auth = useAuthUser();
+  const userId = auth.id;
+  const reactions = getMessageReactions(userId);
+  const reaction = reactions[messageId];
+  const toggleReaction = (type: 'like' | 'dislike') => {
+    const newReaction = reaction === type ? null : type;
+    setMessageReaction(userId, messageId, newReaction);
+  };
   return (
     <div className="flex min-w-0 items-start">
       <div className="grid min-w-0 flex-1">
@@ -227,10 +242,31 @@ function AssistantRow({
                 {copied ? "Copied" : "Copy"}
               </Button>
             )}
+            {/* Like/Dislike buttons */}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={reaction === 'like' ? "Unlike" : "Like"}
+              onClick={() => toggleReaction('like')}
+              className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'like' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
+            >
+              <ThumbsUp aria-hidden="true" className="size-3.5" />
+              {reaction === 'like' ? 'Liked' : 'Like'}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={reaction === 'dislike' ? "Undislike" : "Dislike"}
+              onClick={() => toggleReaction('dislike')}
+              className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'dislike' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
+            >
+              <ThumbsDown aria-hidden="true" className="size-3.5" />
+              {reaction === 'dislike' ? 'Disliked' : 'Dislike'}
+            </Button>
             {stopped && (
-              <span className="text-[11px] text-ink-soft">
-                Stopped
-              </span>
+              <span className="text-[11px] text-ink-soft">Stopped</span>
             )}
             {timestamp !== undefined && (
               <time
@@ -262,6 +298,11 @@ export default function Chat() {
   const searchParams = useSearchParams();
   const requestedChatId = searchParams.get("chat");
   const userId = user.id;
+  const [hasVisited, setHasVisited] = useState(false);
+  useEffect(() => {
+    const flag = window.localStorage.getItem(`studyeco:tutor-visited:${userId}`);
+    setHasVisited(!!flag);
+  }, [userId]);
   const subscribe = useCallback(
     (callback: () => void) => subscribeToChats(callback, userId),
     [userId],
@@ -277,6 +318,8 @@ export default function Chat() {
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editedText, setEditedText] = useState<string>("");
   const hasHydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
@@ -598,31 +641,31 @@ export default function Chat() {
           aria-label="Conversation"
         >
           {messages.length === 0 && !errorMessage ? (
-            <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
-              <h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">
-                AI Tutor
-              </h1>
-              <p className="mt-2 text-sm text-ink-soft">
-                Your personal study companion
-              </p>
-              <h2 className="mt-9 text-base font-semibold">
-                What are you learning today?
-              </h2>
-              <div className="mt-5 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-2">
-                {suggestions.map((suggestion, index) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => submitText(suggestion)}
-                    style={{ animationDelay: `${index * 80}ms` }}
-                    className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
+                <div className="flex min-h-full flex-col items-center justify-center py-8 text-center">
+                  {hasVisited ? (
+                    <TutorHome />
+                  ) : (
+                    <>
+                      <h1 className="font-heading text-3xl font-bold tracking-tight sm:text-4xl">AI Tutor</h1>
+                      <p className="mt-2 text-sm text-ink-soft">Your personal study companion</p>
+                      <h2 className="mt-9 text-base font-semibold">What are you learning today?</h2>
+                      <div className="mt-5 grid w-full max-w-2xl grid-cols-1 gap-3 text-left sm:grid-cols-2">
+                        {suggestions.map((suggestion, index) => (
+                          <button
+                            key={suggestion}
+                            type="button"
+                            onClick={() => submitText(suggestion)}
+                            style={{ animationDelay: `${index * 80}ms` }}
+                            className="min-h-14 rounded-xl border border-line bg-paper px-4 py-3 text-left text-[13px] leading-5 hover:bg-mist motion-safe:transition-colors motion-safe:duration-150 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2 motion-safe:duration-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
             <div
               className="mx-auto flex w-full max-w-3xl flex-col gap-7 pb-5"
               aria-live="polite"
