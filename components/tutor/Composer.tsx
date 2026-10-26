@@ -29,10 +29,36 @@ export default function Composer({
   const [isSupported, setIsSupported] = useState<boolean>(true);
   const [isListening, setIsListening] = useState<boolean>(false);
   const [speechError, setSpeechError] = useState<string>("");
-  const [language, setLanguage] = useState<string>(() => {
-    const stored = typeof window !== "undefined" && window.localStorage.getItem("speech-lang");
-    return stored ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
-  });
+  const [language, setLanguage] = useState<string>('default');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // Migrate old storage key if present
+    const oldKey = 'speech-lang';
+    const newKey = 'studyeco:speech-lang';
+    let stored = window.localStorage.getItem(newKey);
+    if (!stored) {
+      const old = window.localStorage.getItem(oldKey);
+      if (old) {
+        window.localStorage.setItem(newKey, old);
+        window.localStorage.removeItem(oldKey);
+        stored = old;
+      }
+    }
+    const allowed = ['default', 'en-US', 'hi-IN', 'ur-PK'];
+    const value = stored && allowed.includes(stored) ? stored : 'default';
+    setLanguage(value);
+  }, []);
+
+  useEffect(() => {
+    // Update recognizer language when language changes (including default fallback)
+    if (recognitionRef.current) {
+      const effectiveLang = language === 'default'
+        ? (typeof navigator !== 'undefined' ? navigator.language : 'en-US')
+        : language;
+      recognitionRef.current.lang = effectiveLang;
+    }
+  }, [language]);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {

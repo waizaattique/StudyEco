@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore, useMemo } from 'react';
 import { useAuthUser } from '@/components/AuthUserProvider';
 import { getDisplayName } from '@/lib/auth/display-name';
 import { listChats } from '@/lib/chat-store';
@@ -7,16 +7,28 @@ import { useRouter } from 'next/navigation';
 export default function TutorHome() {
   const user = useAuthUser();
   const userId = user.id;
-  const [hasVisited, setHasVisited] = useState(false);
-  const [shortcuts, setShortcuts] = useState<Array<{ id: string; title: string }>>([]);
   const router = useRouter();
 
-  useEffect(() => {
-    const flag = window.localStorage.getItem(`studyeco:tutor-visited:${userId}`);
-    setHasVisited(!!flag);
-    const recent = listChats(userId).slice(0, 3).map((c) => ({ id: c.id, title: c.title }));
-    setShortcuts(recent);
+  // Sync external store for visit flag (primitive boolean)
+  const hasVisited = useSyncExternalStore(
+    (callback) => {
+      window.addEventListener('storage', callback);
+      return () => window.removeEventListener('storage', callback);
+    },
+    () => !!window.localStorage.getItem(`studyeco:tutor-visited:${userId}`)
+  );
+
+  // Memoized shortcuts derived from chat store (stable array via useMemo)
+  const shortcuts = useMemo(() => {
+    return listChats(userId).slice(0, 3).map((c) => ({ id: c.id, title: c.title }));
   }, [userId]);
+
+  const handleShortcut = (chatId: string) => {
+    router.push(`/ai-tutor?chat=${encodeURIComponent(chatId)}`);
+  };
+
+  const displayName = getDisplayName(user);
+
 
   const handleShortcut = (chatId: string) => {
     router.push(`/ai-tutor?chat=${encodeURIComponent(chatId)}`);

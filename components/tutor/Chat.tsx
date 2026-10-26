@@ -202,13 +202,14 @@ function AssistantRow({
   stopped: boolean;
   error?: boolean;
   timestamp?: number;
-  messageId: string;
+  messageId?: string;
 }) {
   const auth = useAuthUser();
   const userId = auth.id;
   const reactions = getMessageReactions(userId);
-  const reaction = reactions[messageId];
+  const reaction = messageId ? reactions[messageId] : undefined;
   const toggleReaction = (type: 'like' | 'dislike') => {
+    if (!messageId) return;
     const newReaction = reaction === type ? null : type;
     setMessageReaction(userId, messageId, newReaction);
   };
@@ -243,28 +244,32 @@ function AssistantRow({
               </Button>
             )}
             {/* Like/Dislike buttons */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={reaction === 'like' ? "Unlike" : "Like"}
-              onClick={() => toggleReaction('like')}
-              className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'like' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
-            >
-              <ThumbsUp aria-hidden="true" className="size-3.5" />
-              {reaction === 'like' ? 'Liked' : 'Like'}
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={reaction === 'dislike' ? "Undislike" : "Dislike"}
-              onClick={() => toggleReaction('dislike')}
-              className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'dislike' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
-            >
-              <ThumbsDown aria-hidden="true" className="size-3.5" />
-              {reaction === 'dislike' ? 'Disliked' : 'Dislike'}
-            </Button>
+            {messageId && (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={reaction === 'like' ? "Unlike" : "Like"}
+                  onClick={() => toggleReaction('like')}
+                  className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'like' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
+                >
+                  <ThumbsUp aria-hidden="true" className="size-3.5" />
+                  {reaction === 'like' ? 'Liked' : 'Like'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={reaction === 'dislike' ? "Undislike" : "Dislike"}
+                  onClick={() => toggleReaction('dislike')}
+                  className={`h-8 gap-1.5 px-2 text-xs ${reaction === 'dislike' ? 'text-ink' : 'text-ink-soft'} hover:bg-mist motion-safe:transition-opacity motion-safe:duration-150 focus-visible:ring-2 focus-visible:ring-ink`}
+                >
+                  <ThumbsDown aria-hidden="true" className="size-3.5" />
+                  {reaction === 'dislike' ? 'Disliked' : 'Dislike'}
+                </Button>
+              </>
+            )}
             {stopped && (
               <span className="text-[11px] text-ink-soft">Stopped</span>
             )}
