@@ -47,11 +47,10 @@ type IpRateLimit = {
 // These in-memory counters reset on restart and aren't shared across instances, so they only reduce abuse and don't fully stop it.
 const ipRateLimits = new Map<string, IpRateLimit>();
 
-type ModelStreamChunk = ReturnType<typeof streamText>["stream"] extends ReadableStream<
-  infer Chunk
->
-  ? Chunk
-  : never;
+type ModelStreamChunk =
+  ReturnType<typeof streamText>["stream"] extends ReadableStream<infer Chunk>
+    ? Chunk
+    : never;
 
 function jsonError(message: string, status: number, headers?: HeadersInit) {
   return Response.json({ error: message }, { status, headers });
@@ -111,7 +110,9 @@ class PreflightChunkLimitError extends PreflightError {
 
 async function readRequestBody(
   request: Request,
-): Promise<{ ok: true; text: string } | { ok: false; status: number; message: string }> {
+): Promise<
+  { ok: true; text: string } | { ok: false; status: number; message: string }
+> {
   const contentLength = request.headers.get("content-length");
   if (contentLength && Number(contentLength) > MAX_REQUEST_BODY_BYTES) {
     return {
@@ -166,15 +167,23 @@ function readWithTimeout(
 ) {
   return new Promise<ReadableStreamReadResult<ModelStreamChunk>>(
     (resolve, reject) => {
-      const timeout = setTimeout(() => reject(new FirstTextTimeoutError()), timeoutMs);
-      reader.read().then(resolve, reject).finally(() => clearTimeout(timeout));
+      const timeout = setTimeout(
+        () => reject(new FirstTextTimeoutError()),
+        timeoutMs,
+      );
+      reader
+        .read()
+        .then(resolve, reject)
+        .finally(() => clearTimeout(timeout));
     },
   );
 }
 
 function isQuotaError(error: unknown): boolean {
   if (typeof error === "string") {
-    return /quota|rate.?limit|resource.?exhausted|too many requests/i.test(error);
+    return /quota|rate.?limit|resource.?exhausted|too many requests/i.test(
+      error,
+    );
   }
   if (typeof error !== "object" || error === null) return false;
 
@@ -307,14 +316,36 @@ async function prepareModelStream(
       const remainingMs = firstTextDeadline - Date.now();
       if (remainingMs <= 0) throw new FirstTextTimeoutError();
       const { done, value } = await readWithTimeout(reader, remainingMs);
+
       if (done) {
-        console.info("[api/chat] Model answered", { model: modelId });
+        const receivedText = initialChunks.some(
+          (chunk) => chunk.type === "text-delta" && chunk.text.length > 0,
+        );
+
         reader.releaseLock();
+
+        if (!receivedText) {
+          console.info("[api/chat] Model ended without sending text", {
+            model: modelId,
+          });
+
+          return {
+            ok: false as const,
+            error: new PreflightError(
+              "The model ended before sending a text response.",
+            ),
+          };
+        }
+
+        console.info("[api/chat] Model answered", { model: modelId });
+
         return {
           ok: true as const,
           stream: new ReadableStream<ModelStreamChunk>({
             start(controller) {
-              for (const chunk of initialChunks) controller.enqueue(chunk);
+              for (const chunk of initialChunks) {
+                controller.enqueue(chunk);
+              }
               controller.close();
             },
           }),
@@ -330,7 +361,10 @@ async function prepareModelStream(
       if (value.type === "text-delta" && value.text.length > 0) {
         initialChunks.push(value);
         console.info("[api/chat] Model answered", { model: modelId });
-        return { ok: true as const, stream: replayStream(reader, initialChunks) };
+        return {
+          ok: true as const,
+          stream: replayStream(reader, initialChunks),
+        };
       }
 
       initialChunks.push(value);
@@ -366,7 +400,11 @@ export async function POST(request: Request) {
     return jsonError("Your session expired. Log in again.", 401);
   }
 
-  const contentType = request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  const contentType = request.headers
+    .get("content-type")
+    ?.split(";")[0]
+    .trim()
+    .toLowerCase();
   if (contentType !== "application/json") {
     return jsonError("Content-Type must be application/json.", 415);
   }
@@ -409,18 +447,19 @@ export async function POST(request: Request) {
     return jsonError("Chat messages must be provided as an array.", 400);
   }
   if (candidateMessages.length > MAX_MESSAGES) {
-    return jsonError(`A chat can contain no more than ${MAX_MESSAGES} messages.`, 400);
+    return jsonError(
+      `A chat can contain no more than ${MAX_MESSAGES} messages.`,
+      400,
+    );
   }
   if (
-    candidateMessages.some(
-      (message) => {
-        if (!message || typeof message !== "object" || Array.isArray(message)) {
-          return true;
-        }
-        const parts = (message as Record<string, unknown>).parts;
-        return !Array.isArray(parts) || parts.length > MAX_PARTS_PER_MESSAGE;
-      },
-    )
+    candidateMessages.some((message) => {
+      if (!message || typeof message !== "object" || Array.isArray(message)) {
+        return true;
+      }
+      const parts = (message as Record<string, unknown>).parts;
+      return !Array.isArray(parts) || parts.length > MAX_PARTS_PER_MESSAGE;
+    })
   ) {
     return jsonError(
       `Each chat message must have a valid parts array with no more than ${MAX_PARTS_PER_MESSAGE} parts.`,
@@ -433,7 +472,10 @@ export async function POST(request: Request) {
     sanitizedMessages.length === 0 ||
     !sanitizedMessages.every(isTutorMessage)
   ) {
-    return jsonError("Chat messages must be a non-empty array of valid messages.", 400);
+    return jsonError(
+      "Chat messages must be a non-empty array of valid messages.",
+      400,
+    );
   }
 
   const messages = sanitizedMessages as UIMessage[];
@@ -464,10 +506,7 @@ export async function POST(request: Request) {
       ),
     0,
   );
-  if (
-    messages.at(-1)?.role !== "user" ||
-    totalLength > MAX_TOTAL_LENGTH
-  ) {
+  if (messages.at(-1)?.role !== "user" || totalLength > MAX_TOTAL_LENGTH) {
     return jsonError(
       totalLength > MAX_TOTAL_LENGTH
         ? "The conversation is too large. Start a new chat."
@@ -480,13 +519,14 @@ export async function POST(request: Request) {
   try {
     validatedMessages = await validateUIMessages({ messages });
   } catch {
-    return jsonError("The chat messages are invalid or exceed the allowed limit.", 400);
+    return jsonError(
+      "The chat messages are invalid or exceed the allowed limit.",
+      400,
+    );
   }
 
   let provider: string;
-  let messagesForModel: Awaited<
-    ReturnType<typeof convertToModelMessages>
-  >;
+  let messagesForModel: Awaited<ReturnType<typeof convertToModelMessages>>;
   try {
     provider = getConfiguredProvider();
     messagesForModel = await convertToModelMessages(validatedMessages);
@@ -515,7 +555,10 @@ export async function POST(request: Request) {
       }
 
       logProviderError(primary.error);
-      if (!isQuotaError(primary.error) && !(primary.error instanceof PreflightError)) {
+      if (
+        !isQuotaError(primary.error) &&
+        !(primary.error instanceof PreflightError)
+      ) {
         return jsonError(GENERIC_ERROR_MESSAGE, 500);
       }
 
@@ -585,7 +628,9 @@ export async function POST(request: Request) {
     if (!attempt.ok) {
       logProviderError(attempt.error);
       return jsonError(
-        isQuotaError(attempt.error) ? PROVIDER_BUSY_MESSAGE : GENERIC_ERROR_MESSAGE,
+        isQuotaError(attempt.error)
+          ? PROVIDER_BUSY_MESSAGE
+          : GENERIC_ERROR_MESSAGE,
         isQuotaError(attempt.error) ? 429 : 500,
       );
     }
