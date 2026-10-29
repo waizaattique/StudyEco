@@ -21,8 +21,8 @@ import { Copy } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { Button } from "@/components/ui/button";
 import { useAuthUser } from "@/components/AuthUserProvider";
-import { getMessageReactions, setMessageReaction, replaceUserMessage, truncateChatAfter } from "@/lib/chat-store";
-import { ThumbsUp, ThumbsDown, Pencil } from "lucide-react";
+import { getMessageReactions, setMessageReaction } from "@/lib/chat-store";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 import Composer from "@/components/tutor/Composer";
 import TutorHome from "@/components/tutor/TutorHome";
 import {
@@ -303,11 +303,30 @@ export default function Chat() {
   const searchParams = useSearchParams();
   const requestedChatId = searchParams.get("chat");
   const userId = user.id;
-  const [hasVisited, setHasVisited] = useState(false);
-  useEffect(() => {
-    const flag = window.localStorage.getItem(`studyeco:tutor-visited:${userId}`);
-    setHasVisited(!!flag);
-  }, [userId]);
+  const subscribeVisited = useCallback(
+    (callback: () => void) => {
+      window.addEventListener("storage", callback);
+      return () => {
+        window.removeEventListener("storage", callback);
+      };
+    },
+    [],
+  );
+  const getVisitedSnapshot = useCallback(
+    () => {
+      try {
+        return !!window.localStorage.getItem(`studyeco:tutor-visited:${userId}`);
+      } catch {
+        return false;
+      }
+    },
+    [userId],
+  );
+  const hasVisited = useSyncExternalStore(
+    subscribeVisited,
+    getVisitedSnapshot,
+    () => false,
+  );
   const subscribe = useCallback(
     (callback: () => void) => subscribeToChats(callback, userId),
     [userId],
@@ -323,8 +342,6 @@ export default function Chat() {
   const [stoppedMessageIds, setStoppedMessageIds] = useState<string[]>([]);
   const [generationKey, setGenerationKey] = useState(0);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
-  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
-  const [editedText, setEditedText] = useState<string>("");
   const hasHydrated = useSyncExternalStore(
     subscribeToHydration,
     () => true,
