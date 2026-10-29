@@ -1,6 +1,7 @@
 import {
   convertToModelMessages,
   createUIMessageStreamResponse,
+  stepCountIs,
   streamText,
   toUIMessageStream,
   validateUIMessages,
@@ -18,6 +19,7 @@ import {
   SYSTEM_PROMPT,
   TEMPERATURE,
 } from "@/lib/ai-config";
+import { studyPlanTool, ToolUserError } from "@/lib/ai-tools/study-plan";
 
 export const maxDuration = 60;
 
@@ -38,6 +40,15 @@ const PROVIDER_BUSY_MESSAGE =
   "The free model is busy. Wait a few seconds and send again.";
 const GENERIC_ERROR_MESSAGE =
   "The tutor could not finish this response. Please try again.";
+
+const MAX_STEPS = 3;
+const STUDY_PLAN_INSTRUCTIONS =
+  "You can call the studyPlan tool. Use it only when the student gives a topic, " +
+  "an exam date and how many hours per day they can study. If any of those three " +
+  "details is missing, ask for it instead of guessing. After the studyPlan tool " +
+  "result, write only one or two sentences and do not repeat the plan in text. " +
+  "Convert relative dates like 'next Friday' into an exact date using today's " +
+  "date before calling the tool.";
 
 type IpRateLimit = {
   windowStartedAt: number;
@@ -257,7 +268,15 @@ function logProviderError(error: unknown) {
   });
 }
 
+function buildSystemPrompt() {
+  const today = new Date().toISOString().slice(0, 10);
+  return `${SYSTEM_PROMPT} Today's date is ${today} (UTC). ${STUDY_PLAN_INSTRUCTIONS}`;
+}
+
 function errorMessage(error: unknown) {
+  // A ToolUserError explains a fixable problem to the student, so it is shown as-is and not logged.
+  if (error instanceof ToolUserError) return error.message;
+
   logProviderError(error);
   return isQuotaError(error) ? PROVIDER_BUSY_MESSAGE : GENERIC_ERROR_MESSAGE;
 }
@@ -293,15 +312,29 @@ function replayStream(
   });
 }
 
+function hasStreamActivity(chunk: ModelStreamChunk) {
+  return (
+    (chunk.type === "text-delta" && chunk.text.length > 0) ||
+    chunk.type === "tool-input-start" ||
+    chunk.type === "tool-input-delta" ||
+    chunk.type === "tool-call" ||
+    chunk.type === "tool-result" ||
+    chunk.type === "tool-error"
+  );
+}
+
 async function prepareModelStream(
   modelId: string,
   model: ReturnType<typeof getModel>,
   messages: Awaited<ReturnType<typeof convertToModelMessages>>,
+  system: string,
   request: Request,
 ) {
   const result = streamText({
     model,
-    system: SYSTEM_PROMPT,
+    system,
+    tools: { studyPlan: studyPlanTool },
+    stopWhen: stepCountIs(MAX_STEPS),
     messages,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
     temperature: TEMPERATURE,
@@ -318,13 +351,11 @@ async function prepareModelStream(
       const { done, value } = await readWithTimeout(reader, remainingMs);
 
       if (done) {
-        const receivedText = initialChunks.some(
-          (chunk) => chunk.type === "text-delta" && chunk.text.length > 0,
-        );
+        const receivedActivity = initialChunks.some(hasStreamActivity);
 
         reader.releaseLock();
 
-        if (!receivedText) {
+        if (!receivedActivity) {
           console.info("[api/chat] Model ended without sending text", {
             model: modelId,
           });
@@ -358,7 +389,7 @@ async function prepareModelStream(
         return { ok: false as const, error: value.error };
       }
 
-      if (value.type === "text-delta" && value.text.length > 0) {
+      if (hasStreamActivity(value)) {
         initialChunks.push(value);
         console.info("[api/chat] Model answered", { model: modelId });
         return {
@@ -535,6 +566,8 @@ export async function POST(request: Request) {
     return jsonError(GENERIC_ERROR_MESSAGE, 500);
   }
 
+  const systemPrompt = buildSystemPrompt();
+
   try {
     if (provider === "google") {
       const primaryModelId = getGoogleModelId();
@@ -542,6 +575,7 @@ export async function POST(request: Request) {
         primaryModelId,
         getModel("google", primaryModelId),
         messagesForModel,
+        systemPrompt,
         request,
       );
 
@@ -572,6 +606,7 @@ export async function POST(request: Request) {
             fallbackModelId,
             getModel("google", fallbackModelId),
             messagesForModel,
+            systemPrompt,
             request,
           );
         } catch (error) {
@@ -597,6 +632,7 @@ export async function POST(request: Request) {
         groqModelId,
         getModel("groq"),
         messagesForModel,
+        systemPrompt,
         request,
       );
       if (groqAttempt.ok) {
@@ -623,6 +659,7 @@ export async function POST(request: Request) {
       selectedModelId,
       model,
       messagesForModel,
+      systemPrompt,
       request,
     );
     if (!attempt.ok) {
