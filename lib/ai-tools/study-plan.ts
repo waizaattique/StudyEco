@@ -183,23 +183,38 @@ export function buildStudyPlan(
   return result;
 }
 
+const STUDY_PLAN_DESCRIPTION =
+  "Build a day-by-day study plan for a topic, from today up to the day before the exam. " +
+  "Use it when the student names a subject, an exam date and how many hours a day they can study.";
+
+const studyPlanInputSchema = z.object({
+  topic: z
+    .string()
+    .describe("The subject or skill the student wants to study."),
+  examDate: z
+    .string()
+    .describe("The exam date as a YYYY-MM-DD calendar date in the student's local time."),
+  hoursPerDay: z
+    .number()
+    .describe(
+      "How many hours the student can study each day, between 0.5 and 12.",
+    ),
+});
+
+/** A study plan tool that starts counting from the given YYYY-MM-DD date. */
+export function createStudyPlanTool(today: string) {
+  return tool({
+    description: STUDY_PLAN_DESCRIPTION,
+    inputSchema: studyPlanInputSchema,
+    execute: async ({ topic, examDate, hoursPerDay }) =>
+      buildStudyPlan({ topic, examDate, hoursPerDay }, today),
+  });
+}
+
+/** Builds plans against the current UTC date, read when the tool runs. */
 export const studyPlanTool = tool({
-  description:
-    "Build a day-by-day study plan for a topic, from today up to the day before the exam. " +
-    "Use it when the student names a subject, an exam date and how many hours a day they can study.",
-  inputSchema: z.object({
-    topic: z
-      .string()
-      .describe("The subject or skill the student wants to study."),
-    examDate: z
-      .string()
-      .describe("The exam date as a YYYY-MM-DD calendar date in UTC."),
-    hoursPerDay: z
-      .number()
-      .describe(
-        "How many hours the student can study each day, between 0.5 and 12.",
-      ),
-  }),
+  description: STUDY_PLAN_DESCRIPTION,
+  inputSchema: studyPlanInputSchema,
   execute: async ({ topic, examDate, hoursPerDay }) => {
     // Read the clock at call time so the plan always starts on the real current UTC day.
     const today = new Date().toISOString().slice(0, 10);

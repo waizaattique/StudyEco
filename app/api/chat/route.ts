@@ -19,7 +19,8 @@ import {
   SYSTEM_PROMPT,
   TEMPERATURE,
 } from "@/lib/ai-config";
-import { studyPlanTool, ToolUserError } from "@/lib/ai-tools/study-plan";
+import { createStudyPlanTool, ToolUserError } from "@/lib/ai-tools/study-plan";
+import { resolveToday } from "@/lib/ai-chat/today";
 
 export const maxDuration = 60;
 
@@ -48,7 +49,11 @@ const STUDY_PLAN_INSTRUCTIONS =
   "details is missing, ask for it instead of guessing. After the studyPlan tool " +
   "result, write only one or two sentences and do not repeat the plan in text. " +
   "Convert relative dates like 'next Friday' into an exact date using today's " +
-  "date before calling the tool.";
+  "date before calling the tool. " +
+  "You cannot save, schedule or send anything. Never say a plan was saved, added " +
+  "to a schedule or timetable, or sent anywhere. Just say the plan is ready.";
+
+type StudyPlanTool = ReturnType<typeof createStudyPlanTool>;
 
 type IpRateLimit = {
   windowStartedAt: number;
@@ -268,9 +273,8 @@ function logProviderError(error: unknown) {
   });
 }
 
-function buildSystemPrompt() {
-  const today = new Date().toISOString().slice(0, 10);
-  return `${SYSTEM_PROMPT} Today's date is ${today} (UTC). ${STUDY_PLAN_INSTRUCTIONS}`;
+function buildSystemPrompt(today: string) {
+  return `${SYSTEM_PROMPT} Today's date is ${today} (the student's local date). ${STUDY_PLAN_INSTRUCTIONS}`;
 }
 
 function errorMessage(error: unknown) {
@@ -328,12 +332,13 @@ async function prepareModelStream(
   model: ReturnType<typeof getModel>,
   messages: Awaited<ReturnType<typeof convertToModelMessages>>,
   system: string,
+  studyPlan: StudyPlanTool,
   request: Request,
 ) {
   const result = streamText({
     model,
     system,
-    tools: { studyPlan: studyPlanTool },
+    tools: { studyPlan },
     stopWhen: stepCountIs(MAX_STEPS),
     messages,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
@@ -566,7 +571,13 @@ export async function POST(request: Request) {
     return jsonError(GENERIC_ERROR_MESSAGE, 500);
   }
 
-  const systemPrompt = buildSystemPrompt();
+  // The browser reports its local date so a plan starts on the student's today, not the server's UTC day.
+  const today = resolveToday(
+    (body as { clientDate?: unknown }).clientDate,
+    new Date(),
+  );
+  const systemPrompt = buildSystemPrompt(today);
+  const studyPlan = createStudyPlanTool(today);
 
   try {
     if (provider === "google") {
@@ -576,6 +587,7 @@ export async function POST(request: Request) {
         getModel("google", primaryModelId),
         messagesForModel,
         systemPrompt,
+        studyPlan,
         request,
       );
 
@@ -607,6 +619,7 @@ export async function POST(request: Request) {
             getModel("google", fallbackModelId),
             messagesForModel,
             systemPrompt,
+            studyPlan,
             request,
           );
         } catch (error) {
@@ -633,6 +646,7 @@ export async function POST(request: Request) {
         getModel("groq"),
         messagesForModel,
         systemPrompt,
+        studyPlan,
         request,
       );
       if (groqAttempt.ok) {
@@ -660,6 +674,7 @@ export async function POST(request: Request) {
       model,
       messagesForModel,
       systemPrompt,
+      studyPlan,
       request,
     );
     if (!attempt.ok) {

@@ -40,6 +40,7 @@ import {
   isMessageMetadata,
 } from "@/lib/chat-date";
 import { incrementTodayQuestions } from "@/lib/activity-store";
+import { localDateString } from "@/lib/ai-chat/today";
 
 const suggestions = [
   "Explain Data Structures and Algorithms",
@@ -71,7 +72,12 @@ let latestServerStatus = 0;
 const chatTransport = new DefaultChatTransport({
   api: "/api/chat",
   prepareSendMessagesRequest: ({ messages, body }) => ({
-    body: { ...body, messages: messages.slice(-MAX_SENT_MESSAGES) },
+    body: {
+      ...body,
+      messages: messages.slice(-MAX_SENT_MESSAGES),
+      // Read at send time so a plan starts on the student's local day, not the server's UTC day.
+      clientDate: localDateString(),
+    },
   }),
   fetch: async (input, init) => {
     latestServerError = "";
